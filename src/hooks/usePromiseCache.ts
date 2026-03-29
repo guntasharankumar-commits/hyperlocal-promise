@@ -17,7 +17,12 @@ export type PromiseCacheEntry = {
   riderName: string;
 };
 
-export type PromiseCache = Record<string, PromiseCacheEntry>; // key: `${persona}-${hexId}`
+export type PromiseCacheTop3 = {
+  best: PromiseCacheEntry;
+  alternatives: { promise: number; tes: number }[];
+};
+
+export type PromiseCache = Record<string, PromiseCacheTop3>; // key: `${persona}-${hexId}`
 
 const REFRESH_INTERVAL_SEC = 300; // 5 minutes
 
@@ -38,11 +43,19 @@ function computeFullCache(
     for (const hex of hexGrid) {
       const s2d = calculateS2D(hex);
       const { rider, tes } = selectBestRider(riders, hex.id, s2d, storeConfig, config.baseTESModifier);
+      
+      // Get top 3 promises sorted by TES descending
+      const sorted = [...tes.breakdown].sort((a, b) => b.tes - a.tes);
+      const alternatives = sorted.slice(1, 3).map(e => ({ promise: e.promise, tes: e.tes }));
+
       cache[getCacheKey(persona, hex.id)] = {
-        promise: tes.optimalPromise,
-        tes: tes.maxTES,
-        riderId: rider.id,
-        riderName: rider.name,
+        best: {
+          promise: tes.optimalPromise,
+          tes: tes.maxTES,
+          riderId: rider.id,
+          riderName: rider.name,
+        },
+        alternatives,
       };
     }
   }
@@ -80,15 +93,26 @@ export function usePromiseCache(
     setTriggerReason(reason);
 
     const personas: UserPersona[] = ['new', 'low_tes', 'med_tes', 'high_tes'];
-    const sampleEntries = personas.map(p => {
-      const entry = newCache[getCacheKey(p, 0)];
-      return `${PERSONA_CONFIGS[p].label}: ${entry?.promise}m (TES ${entry?.tes})`;
-    });
+    
+    // Build full matrix for logging
+    const matrix: Record<string, Record<string, string>> = {};
+    for (const hex of hexGrid) {
+      const hexLabel = `H${hex.id}`;
+      matrix[hexLabel] = {};
+      for (const p of personas) {
+        const entry = newCache[getCacheKey(p, hex.id)];
+        matrix[hexLabel][PERSONA_CONFIGS[p].label] = `${entry?.best.promise}m (TES: ${entry?.best.tes})`;
+      }
+    }
 
     addLog('DATABASE', `🔄 Promise cache refreshed — ${reason}`, {
       totalEntries: Object.keys(newCache).length,
-      personas: sampleEntries,
+      combinations: `${personas.length} personas × ${hexGrid.length} hexes`,
       nextRefreshIn: `${REFRESH_INTERVAL_SEC}s`,
+    });
+
+    addLog('PROMISE', `📊 Full promise matrix (${Object.keys(newCache).length} entries):`, {
+      matrix,
     });
   }, [hexGrid, riders, storeConfig, addLog]);
 
