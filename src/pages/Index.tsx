@@ -6,6 +6,7 @@ import {
   generateHexGrid,
   calculateS2D,
   calculateTES,
+  calculateO2S,
   selectBestRider,
   findRecoveryRider,
   getCachedPromise,
@@ -13,6 +14,7 @@ import {
   generateOrderId,
   RIDER_DATABASE,
   PERSONA_CONFIGS,
+  DEFAULT_STORE_CONFIG,
   initialOrder,
   OrderData,
   AgentLog,
@@ -20,6 +22,7 @@ import {
   Rider,
   UserPersona,
   FulfillmentStatus,
+  StoreConfig,
 } from '@/lib/simulation';
 
 export default function Index() {
@@ -30,8 +33,7 @@ export default function Index() {
   const [logs, setLogs] = useState<AgentLog[]>([]);
   const [pipelineSteps, setPipelineSteps] = useState<AgentPipelineStep[]>([]);
   const [riders, setRiders] = useState<Rider[]>(RIDER_DATABASE.map(r => ({ ...r })));
-  const [pickingVariance] = useState(1.0);
-  const [packerCongestion] = useState(30);
+  const [storeConfig, setStoreConfig] = useState<StoreConfig>({ ...DEFAULT_STORE_CONFIG });
 
   const currentOrder = activeOrders[currentOrderIndex] || activeOrders[0] || { ...initialOrder };
 
@@ -52,8 +54,8 @@ export default function Index() {
   const personaConfig = PERSONA_CONFIGS[currentOrder.persona];
 
   const livePromise = currentOrder.state === 'BROWSE'
-    ? getCachedPromise(selectedHexCell, currentOrder.persona)
-    : Math.ceil(liveS2D + 2 + pickingVariance + personaConfig.promisePadding);
+    ? getCachedPromise(selectedHexCell, currentOrder.persona, storeConfig)
+    : Math.ceil(calculateO2S(storeConfig) + liveS2D + personaConfig.promisePadding);
 
   const handleSelectHex = useCallback((id: number) => {
     if (currentOrder.state !== 'BROWSE' && currentOrder.state !== 'CHECKOUT') return;
@@ -75,7 +77,6 @@ export default function Index() {
   const handleCheckout = useCallback(() => {
     updateCurrentOrder(prev => ({ ...prev, state: 'OPTIMIZING' }));
 
-    // Pipeline visualization
     setPipelineSteps([
       { agent: 'DATABASE', label: 'Database Lookup', status: 'running' },
       { agent: 'PROMISE', label: 'TES Optimization', status: 'pending' },
@@ -85,23 +86,31 @@ export default function Index() {
     addLog('DATABASE', '🔍 Looking up customer history & store health...');
 
     setTimeout(() => {
+      const o2s = calculateO2S(storeConfig);
       setPipelineSteps(prev => prev.map(s =>
-        s.agent === 'DATABASE' ? { ...s, status: 'done' as const, output: { persona: currentOrder.persona, storeHealth: 'normal', pickingVariance } } :
+        s.agent === 'DATABASE' ? { ...s, status: 'done' as const, output: { persona: currentOrder.persona, storeHealth: 'normal', o2s: Math.round(o2s * 10) / 10, storeConfig } } :
         s.agent === 'PROMISE' ? { ...s, status: 'running' as const } : s
       ));
-      addLog('DATABASE', '✅ Customer data loaded.', { persona: currentOrder.persona });
-      addLog('PROMISE', '🔄 Initiating TES optimization loop...');
+      addLog('DATABASE', '✅ Customer data loaded.', { persona: currentOrder.persona, o2s });
+      addLog('PROMISE', '🔄 Calculating TES for P=5..18 with O2S + S2D...');
 
       setTimeout(() => {
         const bestRider = selectBestRider(riders, currentOrder.selectedHex);
-        const tes = calculateTES(liveS2D, bestRider.rating, pickingVariance, packerCongestion, personaConfig.baseTESModifier);
+        const tes = calculateTES(liveS2D, bestRider.rating, storeConfig, personaConfig.baseTESModifier);
+
+        // Log full breakdown
+        addLog('PROMISE', `📊 TES breakdown (O2S=${tes.o2s}m, S2D=${tes.s2d}m, D=${tes.plannedD}m):`, {
+          breakdown: tes.breakdown,
+          optimalPromise: tes.optimalPromise,
+          minTES: tes.minTES,
+        });
 
         setPipelineSteps(prev => prev.map(s =>
-          s.agent === 'PROMISE' ? { ...s, status: 'done' as const, output: { optimalPromise: tes.optimalPromise, maxTES: tes.maxTES } } :
+          s.agent === 'PROMISE' ? { ...s, status: 'done' as const, output: { optimalPromise: tes.optimalPromise, minTES: tes.minTES, o2s: tes.o2s, s2d: tes.s2d, plannedD: tes.plannedD } } :
           s.agent === 'ASSIGNMENT' ? { ...s, status: 'running' as const } : s
         ));
 
-        addLog('PROMISE', '✅ Optimization complete.', { optimalPromise: tes.optimalPromise, maxTES: tes.maxTES });
+        addLog('PROMISE', `✅ Promise = ${tes.optimalPromise}m (min TES: ${tes.minTES})`);
 
         setTimeout(() => {
           setPipelineSteps(prev => prev.map(s =>
@@ -120,14 +129,14 @@ export default function Index() {
             state: 'FULFILLMENT',
             fulfillmentStatus: 'created',
             promiseMinutes: tes.optimalPromise,
-            tes: tes.maxTES,
+            tes: tes.minTES,
             assignedRider: bestRider,
             startTime: Date.now(),
           }));
         }, 600);
       }, 800);
     }, 600);
-  }, [riders, currentOrder.selectedHex, currentOrder.persona, liveS2D, pickingVariance, packerCongestion, personaConfig, addLog, updateCurrentOrder]);
+  }, [riders, currentOrder.selectedHex, currentOrder.persona, liveS2D, storeConfig, personaConfig, addLog, updateCurrentOrder]);
 
   const handleAdvanceStatus = useCallback((orderId: string) => {
     updateOrderById(orderId, (prev) => {
@@ -140,7 +149,6 @@ export default function Index() {
         setTimeout(() => {
           setActiveOrders(orders => orders.filter(o => o.id !== orderId));
           setPastOrders(p => [{ ...prev, fulfillmentStatus: 'delivered', state: 'DELIVERED' }, ...p]);
-          // Free rider
           if (prev.assignedRider) {
             setRiders(r => r.map(rider => rider.id === prev.assignedRider!.id ? { ...rider, status: 'idle' } : rider));
           }
@@ -158,7 +166,21 @@ export default function Index() {
       addLog('SYSTEM', `⚠️ Delay injected at ${status}: +${delaySec}s`, { orderId, status });
 
       if (status === 'picked' && !prev.delays.picked) {
-        addLog('RECOVERY', '🔄 Recovery Protocol activated.');
+        addLog('RECOVERY', '🔄 Recovery Protocol activated — recalculating with actual O2S.');
+
+        // Use actual elapsed O2S
+        const elapsedMs = prev.startTime ? Date.now() - prev.startTime : 0;
+        const actualO2S = elapsedMs / 60000; // convert to minutes
+        
+        const hex = hexGrid.find(h => h.id === prev.selectedHex)!;
+        const s2d = calculateS2D(hex);
+        const recoveryTes = calculateTES(s2d, prev.assignedRider?.rating || 4, storeConfig, PERSONA_CONFIGS[prev.persona].baseTESModifier, actualO2S);
+
+        addLog('RECOVERY', `📊 Recovery TES recalc (actual O2S=${Math.round(actualO2S * 10) / 10}m)`, {
+          newPromise: recoveryTes.optimalPromise,
+          newTES: recoveryTes.minTES,
+        });
+
         const recoveryRider = findRecoveryRider(riders, prev.assignedRider?.id);
         addLog('RECOVERY', `✅ Re-assigned to ${recoveryRider.name}`, { localityAwareness: recoveryRider.localityAwareness });
 
@@ -166,24 +188,26 @@ export default function Index() {
           agent: 'RECOVERY',
           label: 'Recovery Protocol',
           status: 'done' as const,
-          output: { newRider: recoveryRider.name, reason: 'Picking delay' },
+          output: { newRider: recoveryRider.name, reason: 'Picking delay', actualO2S: Math.round(actualO2S * 10) / 10, newPromise: recoveryTes.optimalPromise },
         }]);
 
         return {
           ...prev,
           delays: { ...prev.delays, [status]: existing + delaySec },
           assignedRider: recoveryRider,
+          promiseMinutes: recoveryTes.optimalPromise,
+          tes: recoveryTes.minTES,
           state: 'FULFILLMENT' as const,
         };
       }
 
       return { ...prev, delays: { ...prev.delays, [status]: existing + delaySec } };
     });
-  }, [riders, addLog, updateOrderById]);
+  }, [riders, hexGrid, storeConfig, addLog, updateOrderById]);
 
   const handleNewOrder = useCallback(() => {
     setActiveOrders(prev => [...prev, { ...initialOrder }]);
-    setCurrentOrderIndex(prev => activeOrders.length); // point to new order
+    setCurrentOrderIndex(prev => activeOrders.length);
     setPipelineSteps([]);
   }, [activeOrders.length]);
 
@@ -279,6 +303,8 @@ export default function Index() {
               pastOrders={pastOrders}
               riders={riders}
               hexGrid={hexGrid}
+              storeConfig={storeConfig}
+              onStoreConfigChange={setStoreConfig}
               onAddDelay={handleAddDelay}
               onAdvanceStatus={handleAdvanceStatus}
               onReset={handleReset}

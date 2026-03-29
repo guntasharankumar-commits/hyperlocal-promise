@@ -15,6 +15,26 @@ export const PERSONA_CONFIGS: Record<UserPersona, PersonaConfig> = {
   high_tes: { label: 'High TES', description: 'Trusted customer, aggressive promise', baseTESModifier: 30, promisePadding: 0 },
 };
 
+// ---- Store Config (picking/packing) ----
+export interface StoreConfig {
+  avgPickingTime: number;   // minutes (1-10, default 3)
+  pickingVariance: number;  // minutes (0-3, default 0.2)
+  avgPackingTime: number;   // minutes (1-5, default 2)
+  packingVariance: number;  // minutes (0-3, default 0.3)
+}
+
+export const DEFAULT_STORE_CONFIG: StoreConfig = {
+  avgPickingTime: 3,
+  pickingVariance: 0.2,
+  avgPackingTime: 2,
+  packingVariance: 0.3,
+};
+
+// ---- O2S Calculation ----
+export function calculateO2S(config: StoreConfig): number {
+  return config.avgPickingTime + config.pickingVariance + config.avgPackingTime + config.packingVariance;
+}
+
 // ---- Rider Database ----
 export interface Rider {
   id: string;
@@ -73,13 +93,11 @@ export function generateHexGrid(): HexCell[] {
   // Ring 2: 12 hexagons
   for (let i = 0; i < 6; i++) {
     const angle = (Math.PI / 3) * i;
-    // Outer corners
     positions.push({
       dlat: 2 * offset * Math.cos(angle),
       dlng: 2 * offset * Math.sin(angle),
       ring: 2,
     });
-    // Outer edges (between corners)
     const midAngle = (Math.PI / 3) * i + Math.PI / 6;
     positions.push({
       dlat: Math.sqrt(3) * offset * Math.cos(midAngle),
@@ -113,28 +131,33 @@ export function calculateS2D(hex: HexCell): number {
 // ---- TES Calculation ----
 export interface TESResult {
   optimalPromise: number;
-  maxTES: number;
+  minTES: number;
+  o2s: number;
+  s2d: number;
+  plannedD: number;
   breakdown: { promise: number; tes: number }[];
 }
 
 export function calculateTES(
   s2dMinutes: number,
   riderRating: number,
-  pickingVariance: number,
-  packerCongestion: number,
-  personaModifier: number = 0
+  storeConfig: StoreConfig,
+  personaModifier: number = 0,
+  actualO2S?: number, // used in recovery with actual elapsed O2S
 ): TESResult {
   const W1 = 1.2;
   const W2_base = 2.0;
   const W3 = 5.0;
-  const cost = pickingVariance * 0.5 + packerCongestion * 0.3;
-  const D = s2dMinutes + 2 + pickingVariance;
+
+  const o2s = actualO2S ?? calculateO2S(storeConfig);
+  const D = o2s + s2dMinutes;
+  const cost = storeConfig.pickingVariance * 0.5 + storeConfig.packingVariance * 0.3;
 
   const breakdown: { promise: number; tes: number }[] = [];
-  let maxTES = -Infinity;
+  let minTES = Infinity;
   let optimalPromise = 10;
 
-  for (let P = 8; P <= 15; P++) {
+  for (let P = 5; P <= 18; P++) {
     const W2 = P < D ? W2_base * Math.exp((D - P) * 0.5) : W2_base;
     const cushion = P - D;
     const tes =
@@ -144,21 +167,34 @@ export function calculateTES(
       cost +
       personaModifier;
 
-    breakdown.push({ promise: P, tes: Math.round(tes * 10) / 10 });
-    if (tes > maxTES) {
-      maxTES = tes;
+    const rounded = Math.round(tes * 10) / 10;
+    breakdown.push({ promise: P, tes: rounded });
+
+    // Find minimum TES (most aggressive feasible promise)
+    if (rounded < minTES && P >= Math.ceil(D)) {
+      minTES = rounded;
       optimalPromise = P;
     }
   }
 
-  return { optimalPromise, maxTES: Math.round(maxTES * 10) / 10, breakdown };
+  // If no promise >= D was found, pick the one closest to D
+  if (minTES === Infinity) {
+    const closestToD = breakdown.reduce((best, cur) =>
+      Math.abs(cur.promise - D) < Math.abs(best.promise - D) ? cur : best
+    );
+    optimalPromise = closestToD.promise;
+    minTES = closestToD.tes;
+  }
+
+  return { optimalPromise, minTES, o2s: Math.round(o2s * 10) / 10, s2d: Math.round(s2dMinutes * 10) / 10, plannedD: Math.round(D * 10) / 10, breakdown };
 }
 
 // ---- Cached Promise (for Browse mode per hex) ----
-export function getCachedPromise(hex: HexCell, persona: UserPersona): number {
+export function getCachedPromise(hex: HexCell, persona: UserPersona, storeConfig: StoreConfig = DEFAULT_STORE_CONFIG): number {
   const config = PERSONA_CONFIGS[persona];
   const s2d = calculateS2D(hex);
-  return Math.ceil(s2d + 2 + 1.0 + config.promisePadding);
+  const o2s = calculateO2S(storeConfig);
+  return Math.ceil(o2s + s2d + config.promisePadding);
 }
 
 // ---- Order State Machine ----

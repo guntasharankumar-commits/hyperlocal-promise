@@ -1,8 +1,9 @@
 import { AgentLog, AgentPipelineStep, OrderData } from '@/lib/simulation';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Activity, Brain, Bike, RotateCcw, Database, CheckCircle, Loader2, Circle } from 'lucide-react';
+import { Activity, Brain, Bike, RotateCcw, Database, CheckCircle, Loader2, Circle, ChevronDown, ChevronRight } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import TESGauge from './TESGauge';
 
 interface ControlTowerPanelProps {
@@ -44,10 +45,16 @@ const statusIcon = (status: string) => {
 
 export default function ControlTowerPanel({ logs, pipelineSteps, selectedOrder }: ControlTowerPanelProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
+  const [pipelineOpen, setPipelineOpen] = useState(true);
+  const [expandedSteps, setExpandedSteps] = useState<Record<number, boolean>>({});
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [logs.length]);
+
+  const toggleStep = (idx: number) => {
+    setExpandedSteps(prev => ({ ...prev, [idx]: !prev[idx] }));
+  };
 
   return (
     <div className="flex flex-col h-full gap-3">
@@ -64,51 +71,64 @@ export default function ControlTowerPanel({ logs, pipelineSteps, selectedOrder }
         </div>
       )}
 
-      {/* Agent Pipeline */}
-      <div className="bg-card border border-border rounded-xl p-3 flex-shrink-0">
-        <div className="flex items-center gap-2 mb-3">
-          <Brain size={14} className="text-neon" />
-          <span className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider">Agent Pipeline</span>
-        </div>
+      {/* Agent Pipeline — Collapsible */}
+      <Collapsible open={pipelineOpen} onOpenChange={setPipelineOpen}>
+        <div className="bg-card border border-border rounded-xl p-3 flex-shrink-0">
+          <CollapsibleTrigger className="flex items-center gap-2 w-full cursor-pointer">
+            {pipelineOpen ? <ChevronDown size={14} className="text-muted-foreground" /> : <ChevronRight size={14} className="text-muted-foreground" />}
+            <Brain size={14} className="text-neon" />
+            <span className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider">Agent Pipeline</span>
+            <Badge variant="secondary" className="text-[9px] ml-auto">{pipelineSteps.length}</Badge>
+          </CollapsibleTrigger>
 
-        <div className="space-y-1.5">
-          {pipelineSteps.length === 0 && (
-            <div className="text-xs font-mono text-muted-foreground italic py-2">Awaiting order...</div>
-          )}
-          <AnimatePresence>
-            {pipelineSteps.map((step, i) => {
-              const Icon = agentIcons[step.agent] || Activity;
-              return (
-                <motion.div
-                  key={`${step.agent}-${i}`}
-                  initial={{ opacity: 0, x: -10 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  className={`border rounded-lg p-2.5 ${agentBgColors[step.agent] || 'bg-muted/50 border-border'}`}
-                >
-                  <div className="flex items-center justify-between mb-1">
-                    <div className="flex items-center gap-2">
-                      <Icon size={14} className={agentColors[step.agent]} />
-                      <span className={`text-xs font-mono font-bold ${agentColors[step.agent]}`}>{step.label}</span>
-                    </div>
-                    {statusIcon(step.status)}
-                  </div>
-                  {step.output && (
-                    <pre className="text-[10px] font-mono text-foreground/70 mt-1 whitespace-pre-wrap leading-relaxed">
-                      {JSON.stringify(step.output, null, 2)}
-                    </pre>
-                  )}
-                  {step.status === 'running' && (
-                    <div className="flex items-center gap-1.5 mt-1">
-                      <div className="w-1.5 h-1.5 rounded-full bg-rider-blue animate-pulse" />
-                      <span className="text-[10px] font-mono text-rider-blue">Processing...</span>
-                    </div>
-                  )}
-                </motion.div>
-              );
-            })}
-          </AnimatePresence>
+          <CollapsibleContent>
+            <div className="space-y-1.5 mt-3">
+              {pipelineSteps.length === 0 && (
+                <div className="text-xs font-mono text-muted-foreground italic py-2">Awaiting order...</div>
+              )}
+              <AnimatePresence>
+                {pipelineSteps.map((step, i) => {
+                  const Icon = agentIcons[step.agent] || Activity;
+                  const isExpanded = expandedSteps[i] ?? (step.status === 'done');
+                  return (
+                    <motion.div
+                      key={`${step.agent}-${i}`}
+                      initial={{ opacity: 0, x: -10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      className={`border rounded-lg ${agentBgColors[step.agent] || 'bg-muted/50 border-border'}`}
+                    >
+                      <button
+                        onClick={() => toggleStep(i)}
+                        className="flex items-center justify-between w-full p-2.5 cursor-pointer"
+                      >
+                        <div className="flex items-center gap-2">
+                          {isExpanded ? <ChevronDown size={10} className="text-muted-foreground" /> : <ChevronRight size={10} className="text-muted-foreground" />}
+                          <Icon size={14} className={agentColors[step.agent]} />
+                          <span className={`text-xs font-mono font-bold ${agentColors[step.agent]}`}>{step.label}</span>
+                        </div>
+                        {statusIcon(step.status)}
+                      </button>
+                      {isExpanded && step.output && (
+                        <div className="px-2.5 pb-2.5">
+                          <pre className="text-[10px] font-mono text-foreground/70 whitespace-pre-wrap leading-relaxed">
+                            {JSON.stringify(step.output, null, 2)}
+                          </pre>
+                        </div>
+                      )}
+                      {step.status === 'running' && (
+                        <div className="flex items-center gap-1.5 px-2.5 pb-2">
+                          <div className="w-1.5 h-1.5 rounded-full bg-rider-blue animate-pulse" />
+                          <span className="text-[10px] font-mono text-rider-blue">Processing...</span>
+                        </div>
+                      )}
+                    </motion.div>
+                  );
+                })}
+              </AnimatePresence>
+            </div>
+          </CollapsibleContent>
         </div>
-      </div>
+      </Collapsible>
 
       {/* Agent Terminal Logs */}
       <div className="bg-card border border-border rounded-xl p-3 flex-1 min-h-0 flex flex-col">

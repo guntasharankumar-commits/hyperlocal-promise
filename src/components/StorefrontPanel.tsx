@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { OrderData, HexCell, UserPersona, PERSONA_CONFIGS, getCachedPromise, FULFILLMENT_STEPS, FulfillmentStatus } from '@/lib/simulation';
+import { OrderData, HexCell, UserPersona, PERSONA_CONFIGS, getCachedPromise, FULFILLMENT_STEPS, FulfillmentStatus, StoreConfig, DEFAULT_STORE_CONFIG } from '@/lib/simulation';
 import LeafletHexMap from './LeafletHexMap';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -117,7 +117,7 @@ export default function StorefrontPanel({
               <SelectTrigger className="h-8 text-xs font-mono bg-secondary border-border">
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="z-[9999]">
                 {(Object.entries(PERSONA_CONFIGS) as [UserPersona, typeof PERSONA_CONFIGS[UserPersona]][]).map(([key, cfg]) => (
                   <SelectItem key={key} value={key} className="text-xs font-mono">
                     {cfg.label} — {cfg.description}
