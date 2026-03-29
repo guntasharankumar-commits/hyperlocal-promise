@@ -1,10 +1,11 @@
 import { useMemo } from 'react';
-import { OrderData, HexCell, UserPersona, PERSONA_CONFIGS, getCachedPromise, FULFILLMENT_STEPS, FulfillmentStatus, StoreConfig, DEFAULT_STORE_CONFIG } from '@/lib/simulation';
+import { OrderData, HexCell, UserPersona, PERSONA_CONFIGS, FULFILLMENT_STEPS, FulfillmentStatus, StoreConfig } from '@/lib/simulation';
+import { UsePromiseCacheReturn, getCacheKey } from '@/hooks/usePromiseCache';
 import LeafletHexMap from './LeafletHexMap';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ShoppingCart, CreditCard, MapPin, Clock, Package, User, CheckCircle, Circle, Truck, Plus } from 'lucide-react';
+import { ShoppingCart, CreditCard, MapPin, Clock, Package, User, CheckCircle, Circle, Truck, Plus, RefreshCw } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 
 interface StorefrontPanelProps {
@@ -20,6 +21,7 @@ interface StorefrontPanelProps {
   onNewOrder: () => void;
   onSelectActiveOrder: (orderId: string) => void;
   livePromise: number;
+  promiseCache: UsePromiseCacheReturn;
 }
 
 const statusLabels: Record<FulfillmentStatus, string> = {
@@ -53,14 +55,17 @@ export default function StorefrontPanel({
   onNewOrder,
   onSelectActiveOrder,
   livePromise,
+  promiseCache,
 }: StorefrontPanelProps) {
+  // Build promisePerHex from the full cache for the current persona
   const promisePerHex = useMemo(() => {
     const map: Record<number, number> = {};
     hexGrid.forEach(hex => {
-      map[hex.id] = getCachedPromise(hex, currentOrder.persona, storeConfig);
+      const entry = promiseCache.cache[getCacheKey(currentOrder.persona, hex.id)];
+      map[hex.id] = entry?.promise ?? 0;
     });
     return map;
-  }, [hexGrid, currentOrder.persona, storeConfig, cacheVersion]);
+  }, [hexGrid, currentOrder.persona, promiseCache.cache]);
 
   const isBrowsing = currentOrder.state === 'BROWSE' || currentOrder.state === 'CHECKOUT';
   const isTracking = currentOrder.state === 'FULFILLMENT' || currentOrder.state === 'RECOVERY' || currentOrder.state === 'DELIVERED';
