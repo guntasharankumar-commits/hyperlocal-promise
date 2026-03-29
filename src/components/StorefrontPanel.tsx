@@ -156,13 +156,31 @@ export default function StorefrontPanel({
             </div>
           </div>
 
-          {/* Promise + Actions */}
+          {/* Cache Timer + Promise */}
           <div className="px-3 py-2.5 border-t border-border flex-shrink-0">
+            {/* Cache refresh timer */}
+            {currentOrder.state === 'BROWSE' && (
+              <div className="flex items-center justify-between mb-2 bg-secondary/50 rounded px-2 py-1">
+                <div className="flex items-center gap-1.5">
+                  <RefreshCw size={10} className="text-muted-foreground" />
+                  <span className="text-[9px] font-mono text-muted-foreground">NEXT CACHE REFRESH</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-mono font-bold text-foreground">
+                    {Math.floor(promiseCache.secondsUntilRefresh / 60)}:{String(promiseCache.secondsUntilRefresh % 60).padStart(2, '0')}
+                  </span>
+                  {promiseCache.triggerReason && (
+                    <Badge variant="secondary" className="text-[8px]">{promiseCache.triggerReason}</Badge>
+                  )}
+                </div>
+              </div>
+            )}
+
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2">
                 <Clock size={14} className="text-neon" />
                 <span className="text-[10px] font-mono text-muted-foreground">
-                  {currentOrder.state === 'BROWSE' ? 'CACHED PROMISE' : 'ACTUAL PROMISE'}
+                  {currentOrder.state === 'BROWSE' ? 'TES-OPTIMIZED PROMISE' : 'ACTUAL PROMISE'}
                 </span>
               </div>
               <AnimatePresence mode="wait">
