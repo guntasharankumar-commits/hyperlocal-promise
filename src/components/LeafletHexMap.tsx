@@ -103,7 +103,6 @@ export default function LeafletHexMap({
       doubleClickZoom: false,
       boxZoom: false,
       keyboard: false,
-      tap: true,
     });
 
     L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
