@@ -45,6 +45,8 @@ export default function Index() {
     setCacheVersion(v => v + 1);
   }, []);
 
+  const currentOrder = activeOrders[currentOrderIndex] || activeOrders[0] || { ...initialOrder };
+
   const updateCurrentOrder = useCallback((updater: (prev: OrderData) => OrderData) => {
     setActiveOrders(prev => prev.map((o, i) => i === currentOrderIndex ? updater(o) : o));
   }, [currentOrderIndex]);
