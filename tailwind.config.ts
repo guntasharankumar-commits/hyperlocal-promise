@@ -13,6 +13,10 @@ export default {
       },
     },
     extend: {
+      fontFamily: {
+        display: ['Space Grotesk', 'sans-serif'],
+        mono: ['JetBrains Mono', 'monospace'],
+      },
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
@@ -57,6 +61,15 @@ export default {
           border: "hsl(var(--sidebar-border))",
           ring: "hsl(var(--sidebar-ring))",
         },
+        neon: "hsl(var(--neon-green))",
+        "amber-warn": "hsl(var(--amber-warn))",
+        "deep-slate": "hsl(var(--deep-slate))",
+        "slate-panel": "hsl(var(--slate-panel))",
+        "slate-elevated": "hsl(var(--slate-elevated))",
+        "terminal-green": "hsl(var(--terminal-green))",
+        "recovery-gold": "hsl(var(--recovery-gold))",
+        "hex-border": "hsl(var(--hex-border))",
+        "rider-blue": "hsl(var(--rider-blue))",
       },
       borderRadius: {
         lg: "var(--radius)",
@@ -65,25 +78,27 @@ export default {
       },
       keyframes: {
         "accordion-down": {
-          from: {
-            height: "0",
-          },
-          to: {
-            height: "var(--radix-accordion-content-height)",
-          },
+          from: { height: "0" },
+          to: { height: "var(--radix-accordion-content-height)" },
         },
         "accordion-up": {
-          from: {
-            height: "var(--radix-accordion-content-height)",
-          },
-          to: {
-            height: "0",
-          },
+          from: { height: "var(--radix-accordion-content-height)" },
+          to: { height: "0" },
+        },
+        "pulse-neon": {
+          "0%, 100%": { opacity: "1" },
+          "50%": { opacity: "0.6" },
+        },
+        "rider-pulse": {
+          "0%, 100%": { transform: "scale(1)" },
+          "50%": { transform: "scale(1.3)" },
         },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
+        "pulse-neon": "pulse-neon 1.5s ease-in-out infinite",
+        "rider-pulse": "rider-pulse 0.8s ease-in-out infinite",
       },
     },
   },
