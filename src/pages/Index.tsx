@@ -40,7 +40,15 @@ export default function Index() {
     setLogs(prev => [...prev, { timestamp: Date.now(), agent, message, data }]);
   }, []);
 
-  const promiseCache = usePromiseCache(hexGrid, riders, storeConfig, addLog);
+  const handleCacheRefresh = useCallback((reason: string) => {
+    setPipelineSteps([
+      { agent: 'DATABASE', label: 'Cache Refresh', status: 'done' as const, output: { reason, trigger: 'automatic' } },
+      { agent: 'PROMISE', label: 'TES Optimization (76 entries)', status: 'done' as const, output: { combinations: '4 personas × 19 hexes', status: 'complete' } },
+      { agent: 'ASSIGNMENT', label: 'Rider Ranking', status: 'done' as const, output: { status: 'Best rider per combo cached' } },
+    ]);
+  }, []);
+
+  const promiseCache = usePromiseCache(hexGrid, riders, storeConfig, addLog, handleCacheRefresh);
   const invalidateCache = useCallback(() => {
     setCacheVersion(v => v + 1);
   }, []);
