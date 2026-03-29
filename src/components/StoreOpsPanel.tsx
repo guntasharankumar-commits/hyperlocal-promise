@@ -40,13 +40,20 @@ export default function StoreOpsPanel({
   onReset,
 }: StoreOpsPanelProps) {
   const [configOpen, setConfigOpen] = useState(true);
+  const [draftConfig, setDraftConfig] = useState<StoreConfig>({ ...storeConfig });
   const allOrders = [...activeOrders.filter(o => o.id), ...pastOrders];
   const liveOrders = activeOrders.filter(o => o.id && o.state !== 'DELIVERED');
   const idleRiders = riders.filter(r => r.status === 'idle');
   const activeRiders = riders.filter(r => r.status !== 'idle');
 
-  const updateConfig = (key: keyof StoreConfig, value: number) => {
-    onStoreConfigChange({ ...storeConfig, [key]: value });
+  const isDirty = JSON.stringify(draftConfig) !== JSON.stringify(storeConfig);
+
+  const updateDraft = (key: keyof StoreConfig, value: number) => {
+    setDraftConfig(prev => ({ ...prev, [key]: value }));
+  };
+
+  const confirmConfig = () => {
+    onStoreConfigChange(draftConfig);
   };
 
   return (
@@ -69,7 +76,8 @@ export default function StoreOpsPanel({
             <Settings size={14} className="text-neon" />
             <span className="text-xs font-display font-bold text-foreground">Store Config</span>
             <span className="text-[9px] font-mono text-muted-foreground ml-auto">
-              O2S: {(storeConfig.avgPickingTime + storeConfig.pickingVariance + storeConfig.avgPackingTime + storeConfig.packingVariance).toFixed(1)}m
+              O2S: {(draftConfig.avgPickingTime + draftConfig.pickingVariance + draftConfig.avgPackingTime + draftConfig.packingVariance).toFixed(1)}m
+              {isDirty && <span className="text-recovery-gold ml-1">• unsaved</span>}
             </span>
           </CollapsibleTrigger>
           <CollapsibleContent>
@@ -77,40 +85,48 @@ export default function StoreOpsPanel({
               <div>
                 <div className="flex justify-between mb-1">
                   <span className="text-[10px] font-mono text-muted-foreground">Avg Picking Time</span>
-                  <span className="text-[10px] font-mono font-bold text-foreground">{storeConfig.avgPickingTime} min</span>
+                  <span className="text-[10px] font-mono font-bold text-foreground">{draftConfig.avgPickingTime} min</span>
                 </div>
-                <Slider value={[storeConfig.avgPickingTime]} onValueChange={([v]) => updateConfig('avgPickingTime', v)} min={1} max={10} step={0.5} />
+                <Slider value={[draftConfig.avgPickingTime]} onValueChange={([v]) => updateDraft('avgPickingTime', v)} min={1} max={10} step={0.5} />
               </div>
               <div>
                 <div className="flex justify-between mb-1">
                   <span className="text-[10px] font-mono text-muted-foreground">Picking Variance</span>
-                  <span className="text-[10px] font-mono font-bold text-foreground">{storeConfig.pickingVariance} min</span>
+                  <span className="text-[10px] font-mono font-bold text-foreground">{draftConfig.pickingVariance} min</span>
                 </div>
-                <Slider value={[storeConfig.pickingVariance]} onValueChange={([v]) => updateConfig('pickingVariance', v)} min={0} max={3} step={0.1} />
+                <Slider value={[draftConfig.pickingVariance]} onValueChange={([v]) => updateDraft('pickingVariance', v)} min={0} max={3} step={0.1} />
               </div>
               <div>
                 <div className="flex justify-between mb-1">
                   <span className="text-[10px] font-mono text-muted-foreground">Avg Packing Time</span>
-                  <span className="text-[10px] font-mono font-bold text-foreground">{storeConfig.avgPackingTime} min</span>
+                  <span className="text-[10px] font-mono font-bold text-foreground">{draftConfig.avgPackingTime} min</span>
                 </div>
-                <Slider value={[storeConfig.avgPackingTime]} onValueChange={([v]) => updateConfig('avgPackingTime', v)} min={1} max={5} step={0.5} />
+                <Slider value={[draftConfig.avgPackingTime]} onValueChange={([v]) => updateDraft('avgPackingTime', v)} min={1} max={5} step={0.5} />
               </div>
               <div>
                 <div className="flex justify-between mb-1">
                   <span className="text-[10px] font-mono text-muted-foreground">Packing Variance</span>
-                  <span className="text-[10px] font-mono font-bold text-foreground">{storeConfig.packingVariance} min</span>
+                  <span className="text-[10px] font-mono font-bold text-foreground">{draftConfig.packingVariance} min</span>
                 </div>
-                <Slider value={[storeConfig.packingVariance]} onValueChange={([v]) => updateConfig('packingVariance', v)} min={0} max={3} step={0.1} />
+                <Slider value={[draftConfig.packingVariance]} onValueChange={([v]) => updateDraft('packingVariance', v)} min={0} max={3} step={0.1} />
               </div>
               <div className="bg-secondary rounded-lg p-2">
                 <div className="text-[10px] font-mono text-muted-foreground mb-0.5">Computed O2S</div>
                 <div className="text-lg font-mono font-bold text-neon">
-                  {(storeConfig.avgPickingTime + storeConfig.pickingVariance + storeConfig.avgPackingTime + storeConfig.packingVariance).toFixed(1)} min
+                  {(draftConfig.avgPickingTime + draftConfig.pickingVariance + draftConfig.avgPackingTime + draftConfig.packingVariance).toFixed(1)} min
                 </div>
                 <div className="text-[9px] font-mono text-muted-foreground">
-                  Pick({storeConfig.avgPickingTime}) + PV({storeConfig.pickingVariance}) + Pack({storeConfig.avgPackingTime}) + PKV({storeConfig.packingVariance})
+                  Pick({draftConfig.avgPickingTime}) + PV({draftConfig.pickingVariance}) + Pack({draftConfig.avgPackingTime}) + PKV({draftConfig.packingVariance})
                 </div>
               </div>
+              <Button
+                onClick={confirmConfig}
+                disabled={!isDirty}
+                className="w-full gap-2 font-mono text-[10px] h-8 bg-neon text-primary-foreground hover:bg-neon/90 disabled:opacity-40"
+                size="sm"
+              >
+                <Settings size={12} /> Confirm Config Changes
+              </Button>
             </div>
           </CollapsibleContent>
         </div>

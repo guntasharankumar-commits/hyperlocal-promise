@@ -10,9 +10,9 @@ export interface PersonaConfig {
 
 export const PERSONA_CONFIGS: Record<UserPersona, PersonaConfig> = {
   new: { label: 'New User', description: 'First-time customer, conservative promise', baseTESModifier: 0, promisePadding: 2 },
-  low_tes: { label: 'Low TES', description: 'History of issues, padded promise', baseTESModifier: -20, promisePadding: 3 },
-  med_tes: { label: 'Med TES', description: 'Average customer experience', baseTESModifier: 10, promisePadding: 1 },
-  high_tes: { label: 'High TES', description: 'Trusted customer, aggressive promise', baseTESModifier: 30, promisePadding: 0 },
+  low_tes: { label: 'Low TES', description: 'History of issues, padded promise', baseTESModifier: -35, promisePadding: 3 },
+  med_tes: { label: 'Med TES', description: 'Average customer experience', baseTESModifier: 15, promisePadding: 1 },
+  high_tes: { label: 'High TES', description: 'Trusted customer, aggressive promise', baseTESModifier: 50, promisePadding: 0 },
 };
 
 // ---- Store Config (picking/packing) ----
