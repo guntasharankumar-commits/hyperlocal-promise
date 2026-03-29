@@ -35,15 +35,14 @@ export default function Index() {
   const [riders, setRiders] = useState<Rider[]>(RIDER_DATABASE.map(r => ({ ...r })));
   const [storeConfig, setStoreConfig] = useState<StoreConfig>({ ...DEFAULT_STORE_CONFIG });
   const [cacheVersion, setCacheVersion] = useState(0);
-  const promiseCache = usePromiseCache(hexGrid, riders, storeConfig, addLog);
-  const invalidateCache = useCallback(() => {
-    setCacheVersion(v => v + 1);
-  }, []);
-
-  const currentOrder = activeOrders[currentOrderIndex] || activeOrders[0] || { ...initialOrder };
 
   const addLog = useCallback((agent: AgentLog['agent'], message: string, data?: Record<string, unknown>) => {
     setLogs(prev => [...prev, { timestamp: Date.now(), agent, message, data }]);
+  }, []);
+
+  const promiseCache = usePromiseCache(hexGrid, riders, storeConfig, addLog);
+  const invalidateCache = useCallback(() => {
+    setCacheVersion(v => v + 1);
   }, []);
 
   const updateCurrentOrder = useCallback((updater: (prev: OrderData) => OrderData) => {
