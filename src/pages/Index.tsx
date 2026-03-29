@@ -78,7 +78,7 @@ export default function Index() {
   const personaConfig = PERSONA_CONFIGS[currentOrder.persona];
 
   const cachedEntry = promiseCache.cache[getCacheKey(currentOrder.persona, currentOrder.selectedHex)];
-  const livePromise = currentOrder.state === 'BROWSE'
+  const livePromise = (currentOrder.state === 'BROWSE' || currentOrder.state === 'CHECKOUT')
     ? (cachedEntry?.best.promise ?? Math.ceil(calculateO2S(storeConfig) + liveS2D + personaConfig.promisePadding))
     : (currentOrder.promiseMinutes ?? Math.ceil(calculateO2S(storeConfig) + liveS2D + personaConfig.promisePadding));
 
