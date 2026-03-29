@@ -1,7 +1,8 @@
-import { AgentLog, AgentPipelineStep, OrderData, Rider } from '@/lib/simulation';
+import { AgentLog, AgentPipelineStep, OrderData, Rider, PERSONA_CONFIGS } from '@/lib/simulation';
+import { UsePromiseCacheReturn, getCacheKey } from '@/hooks/usePromiseCache';
 import { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Activity, Brain, Bike, RotateCcw, Database, CheckCircle, Loader2, Circle, ChevronDown, ChevronRight, Star, Gauge, Clock } from 'lucide-react';
+import { Activity, Brain, Bike, RotateCcw, Database, CheckCircle, Loader2, Circle, ChevronDown, ChevronRight, Star, Gauge, Clock, RefreshCw, Target } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import TESGauge from './TESGauge';
@@ -11,6 +12,7 @@ interface ControlTowerPanelProps {
   pipelineSteps: AgentPipelineStep[];
   selectedOrder: OrderData | null;
   riders: Rider[];
+  promiseCache: UsePromiseCacheReturn;
 }
 
 const agentIcons: Record<string, typeof Brain> = {
@@ -44,7 +46,7 @@ const statusIcon = (status: string) => {
   return <Circle size={14} className="text-muted-foreground/40" />;
 };
 
-export default function ControlTowerPanel({ logs, pipelineSteps, selectedOrder, riders }: ControlTowerPanelProps) {
+export default function ControlTowerPanel({ logs, pipelineSteps, selectedOrder, riders, promiseCache }: ControlTowerPanelProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
   const [pipelineOpen, setPipelineOpen] = useState(true);
   const [terminalOpen, setTerminalOpen] = useState(true);
@@ -69,8 +71,66 @@ export default function ControlTowerPanel({ logs, pipelineSteps, selectedOrder, 
   const idleRiders = riders.filter(r => r.status === 'idle');
   const activeRiders = riders.filter(r => r.status !== 'idle');
 
+  // Get cached entry for current selection (browse mode)
+  const cachedEntry = selectedOrder
+    ? promiseCache.cache[getCacheKey(selectedOrder.persona, selectedOrder.selectedHex)]
+    : null;
+
   return (
     <div className="flex flex-col h-full gap-3">
+      {/* Cache Refresh Timer */}
+      <div className="bg-card border border-border rounded-xl p-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <RefreshCw size={12} className="text-neon" />
+            <span className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider">Next Cache Refresh</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-mono font-bold text-neon">
+              {Math.floor(promiseCache.secondsUntilRefresh / 60)}:{String(promiseCache.secondsUntilRefresh % 60).padStart(2, '0')}
+            </span>
+            {promiseCache.triggerReason && (
+              <Badge variant="secondary" className="text-[8px]">{promiseCache.triggerReason}</Badge>
+            )}
+          </div>
+        </div>
+
+        {/* Show current selection's optimal + alternatives in browse mode */}
+        {selectedOrder && (selectedOrder.state === 'BROWSE' || selectedOrder.state === 'CHECKOUT') && cachedEntry && (
+          <div className="mt-2 pt-2 border-t border-border/50">
+            <div className="flex items-center gap-1.5 mb-1.5">
+              <Target size={10} className="text-neon" />
+              <span className="text-[9px] font-mono text-muted-foreground">
+                {PERSONA_CONFIGS[selectedOrder.persona].label} → H{selectedOrder.selectedHex}
+              </span>
+            </div>
+            <div className="grid grid-cols-3 gap-1.5">
+              {/* Best */}
+              <div className="bg-neon/10 border border-neon/30 rounded p-1.5 text-center">
+                <div className="text-[8px] font-mono text-neon uppercase">Optimal</div>
+                <div className="text-sm font-mono font-bold text-neon">{cachedEntry.best.promise}m</div>
+                <div className="text-[9px] font-mono text-muted-foreground">TES {cachedEntry.best.tes}</div>
+                <div className="text-[8px] font-mono text-muted-foreground">{cachedEntry.best.riderName}</div>
+              </div>
+              {/* 2nd best */}
+              {cachedEntry.alternatives[0] && (
+                <div className="bg-secondary/50 border border-border rounded p-1.5 text-center">
+                  <div className="text-[8px] font-mono text-muted-foreground uppercase">2nd Best</div>
+                  <div className="text-sm font-mono font-bold text-foreground">{cachedEntry.alternatives[0].promise}m</div>
+                  <div className="text-[9px] font-mono text-muted-foreground">TES {cachedEntry.alternatives[0].tes}</div>
+                </div>
+              )}
+              {/* 3rd best */}
+              {cachedEntry.alternatives[1] && (
+                <div className="bg-secondary/50 border border-border rounded p-1.5 text-center">
+                  <div className="text-[8px] font-mono text-muted-foreground uppercase">3rd Best</div>
+                  <div className="text-sm font-mono font-bold text-foreground">{cachedEntry.alternatives[1].promise}m</div>
+                  <div className="text-[9px] font-mono text-muted-foreground">TES {cachedEntry.alternatives[1].tes}</div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       {/* TES Score — Collapsible */}
       {selectedOrder && selectedOrder.tes !== 0 && (
         <Collapsible open={tesOpen} onOpenChange={setTesOpen}>
