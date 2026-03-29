@@ -152,7 +152,7 @@ export default function ControlTowerPanel({ logs, pipelineSteps, selectedOrder }
                 return (
                   <div key={i} className="pb-1 border-b border-border/30 last:border-0">
                     <button
-                      onClick={() => setExpandedLogs(prev => ({ ...prev, [i]: !prev[i] ?? false }))}
+                      onClick={() => setExpandedLogs(prev => ({ ...prev, [i]: !(prev[i] !== false) }))}
                       className="flex items-center gap-2 w-full text-left cursor-pointer"
                     >
                       {log.data ? (

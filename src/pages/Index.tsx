@@ -155,6 +155,7 @@ export default function Index() {
           if (prev.assignedRider) {
             setRiders(r => r.map(rider => rider.id === prev.assignedRider!.id ? { ...rider, status: 'idle' } : rider));
           }
+          invalidateCache();
         }, 500);
         return { ...prev, fulfillmentStatus: next, state: 'DELIVERED' };
       }
@@ -268,6 +269,8 @@ export default function Index() {
               currentOrder={currentOrder}
               activeOrders={activeOrders}
               hexGrid={hexGrid}
+              storeConfig={storeConfig}
+              cacheVersion={cacheVersion}
               onSelectHex={handleSelectHex}
               onAddToCart={handleAddToCart}
               onCheckout={handleCheckout}
