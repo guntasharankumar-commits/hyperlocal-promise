@@ -40,7 +40,15 @@ export default function Index() {
     setLogs(prev => [...prev, { timestamp: Date.now(), agent, message, data }]);
   }, []);
 
-  const promiseCache = usePromiseCache(hexGrid, riders, storeConfig, addLog);
+  const handleCacheRefresh = useCallback((reason: string) => {
+    setPipelineSteps([
+      { agent: 'DATABASE', label: 'Cache Refresh', status: 'done' as const, output: { reason, trigger: 'automatic' } },
+      { agent: 'PROMISE', label: 'TES Optimization (76 entries)', status: 'done' as const, output: { combinations: '4 personas × 19 hexes', status: 'complete' } },
+      { agent: 'ASSIGNMENT', label: 'Rider Ranking', status: 'done' as const, output: { status: 'Best rider per combo cached' } },
+    ]);
+  }, []);
+
+  const promiseCache = usePromiseCache(hexGrid, riders, storeConfig, addLog, handleCacheRefresh);
   const invalidateCache = useCallback(() => {
     setCacheVersion(v => v + 1);
   }, []);
@@ -68,8 +76,18 @@ export default function Index() {
     if (currentOrder.state !== 'BROWSE' && currentOrder.state !== 'CHECKOUT') return;
     updateCurrentOrder(prev => ({ ...prev, selectedHex: id }));
     const hex = hexGrid.find(h => h.id === id)!;
-    addLog('SYSTEM', `Customer moved to Hex ${hex.label}`, { s2d: calculateS2D(hex) });
-  }, [currentOrder.state, hexGrid, addLog, updateCurrentOrder]);
+    const s2d = calculateS2D(hex);
+    const o2s = calculateO2S(storeConfig);
+    const entry = promiseCache.cache[getCacheKey(currentOrder.persona, id)];
+    addLog('SYSTEM', `📍 Customer moved to Hex ${hex.label}`, {
+      promise: entry ? `${entry.best.promise}m` : 'N/A',
+      tes: entry ? entry.best.tes : 'N/A',
+      o2s: `${Math.round(o2s * 10) / 10}m`,
+      s2d: `${Math.round(s2d * 10) / 10}m`,
+      plannedD: `${Math.round((o2s + s2d) * 10) / 10}m`,
+      rider: entry ? entry.best.riderName : 'N/A',
+    });
+  }, [currentOrder.state, currentOrder.persona, hexGrid, storeConfig, promiseCache.cache, addLog, updateCurrentOrder]);
 
   const handleSelectPersona = useCallback((persona: UserPersona) => {
     updateCurrentOrder(prev => ({ ...prev, persona }));
@@ -255,8 +273,13 @@ export default function Index() {
     setCurrentOrderIndex(0);
     setLogs([]);
     setPipelineSteps([]);
-    setRiders(RIDER_DATABASE.map(r => ({ ...r })));
-  }, [activeOrders]);
+    const freshRiders = RIDER_DATABASE.map(r => ({ ...r }));
+    setRiders(freshRiders);
+    // Trigger cache refresh after reset — logs will appear in fresh terminal
+    setTimeout(() => {
+      promiseCache.forceRefresh('System reset — all riders idle');
+    }, 100);
+  }, [activeOrders, promiseCache]);
 
   return (
     <div className="min-h-screen bg-background p-3">
