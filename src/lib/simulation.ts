@@ -256,14 +256,32 @@ export function findRecoveryRider(riders: Rider[], excludeId?: string): Rider {
   return available.sort((a, b) => b.localityAwareness - a.localityAwareness)[0];
 }
 
-export function selectBestRider(riders: Rider[], hexId: number): Rider {
-  return riders
-    .filter(r => r.status === 'idle')
-    .sort((a, b) => {
-      const scoreA = a.rating * 2 + a.speedFactor * 3 - Math.abs(a.hexPosition - hexId) * 0.5;
-      const scoreB = b.rating * 2 + b.speedFactor * 3 - Math.abs(b.hexPosition - hexId) * 0.5;
-      return scoreB - scoreA;
-    })[0] || riders[0];
+export function selectBestRider(
+  riders: Rider[],
+  hexId: number,
+  s2dMinutes: number,
+  storeConfig: StoreConfig,
+  personaModifier: number = 0,
+): { rider: Rider; tes: TESResult } {
+  const idle = riders.filter(r => r.status === 'idle');
+  if (idle.length === 0) {
+    const fallback = riders[0];
+    return { rider: fallback, tes: calculateTES(s2dMinutes, fallback.rating, storeConfig, personaModifier) };
+  }
+
+  let bestRider = idle[0];
+  let bestTes = calculateTES(s2dMinutes, idle[0].rating, storeConfig, personaModifier);
+
+  for (const r of idle) {
+    const tes = calculateTES(s2dMinutes, r.rating, storeConfig, personaModifier);
+    // Choose rider that yields minimum TES (most aggressive optimal promise)
+    if (tes.minTES < bestTes.minTES) {
+      bestRider = r;
+      bestTes = tes;
+    }
+  }
+
+  return { rider: bestRider, tes: bestTes };
 }
 
 // ---- Fulfillment status progression ----

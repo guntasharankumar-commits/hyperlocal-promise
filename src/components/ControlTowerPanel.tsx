@@ -46,7 +46,9 @@ const statusIcon = (status: string) => {
 export default function ControlTowerPanel({ logs, pipelineSteps, selectedOrder }: ControlTowerPanelProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
   const [pipelineOpen, setPipelineOpen] = useState(true);
+  const [terminalOpen, setTerminalOpen] = useState(true);
   const [expandedSteps, setExpandedSteps] = useState<Record<number, boolean>>({});
+  const [expandedLogs, setExpandedLogs] = useState<Record<number, boolean>>({});
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -130,38 +132,53 @@ export default function ControlTowerPanel({ logs, pipelineSteps, selectedOrder }
         </div>
       </Collapsible>
 
-      {/* Agent Terminal Logs */}
-      <div className="bg-card border border-border rounded-xl p-3 flex-1 min-h-0 flex flex-col">
-        <div className="flex items-center gap-2 mb-2">
-          <div className="w-2 h-2 rounded-full bg-neon animate-pulse-neon" />
-          <span className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider">Agent Terminal</span>
-          <Badge variant="secondary" className="text-[9px] ml-auto">{logs.length}</Badge>
-        </div>
-        <div className="flex-1 overflow-y-auto terminal-scrollbar font-mono text-xs space-y-1.5">
-          {logs.length === 0 && (
-            <div className="text-muted-foreground italic text-xs">Waiting for order flow...</div>
-          )}
-          {logs.map((log, i) => (
-            <div key={i} className="pb-1 border-b border-border/30 last:border-0">
-              <div className="flex items-center gap-2">
-                <span className="text-muted-foreground text-[10px]">
-                  {new Date(log.timestamp).toLocaleTimeString()}
-                </span>
-                <span className={`font-bold ${agentColors[log.agent] || 'text-foreground'}`}>
-                  [{log.agent}]
-                </span>
-              </div>
-              <div className="text-foreground/80 ml-4">{log.message}</div>
-              {log.data && (
-                <pre className="text-terminal-green ml-4 mt-0.5 text-[10px] leading-relaxed whitespace-pre-wrap">
-                  {JSON.stringify(log.data, null, 2)}
-                </pre>
+      {/* Agent Terminal Logs — Collapsible */}
+      <Collapsible open={terminalOpen} onOpenChange={setTerminalOpen} className="flex-1 min-h-0 flex flex-col">
+        <div className="bg-card border border-border rounded-xl p-3 flex-1 min-h-0 flex flex-col">
+          <CollapsibleTrigger className="flex items-center gap-2 w-full cursor-pointer">
+            {terminalOpen ? <ChevronDown size={14} className="text-muted-foreground" /> : <ChevronRight size={14} className="text-muted-foreground" />}
+            <div className="w-2 h-2 rounded-full bg-neon animate-pulse-neon" />
+            <span className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider">Agent Terminal</span>
+            <Badge variant="secondary" className="text-[9px] ml-auto">{logs.length}</Badge>
+          </CollapsibleTrigger>
+
+          <CollapsibleContent className="flex-1 min-h-0 flex flex-col mt-2">
+            <div className="flex-1 overflow-y-auto terminal-scrollbar font-mono text-xs space-y-1.5">
+              {logs.length === 0 && (
+                <div className="text-muted-foreground italic text-xs">Waiting for order flow...</div>
               )}
+              {logs.map((log, i) => {
+                const isExpanded = expandedLogs[i] ?? true;
+                return (
+                  <div key={i} className="pb-1 border-b border-border/30 last:border-0">
+                    <button
+                      onClick={() => setExpandedLogs(prev => ({ ...prev, [i]: !prev[i] ?? false }))}
+                      className="flex items-center gap-2 w-full text-left cursor-pointer"
+                    >
+                      {log.data ? (
+                        isExpanded ? <ChevronDown size={8} className="text-muted-foreground flex-shrink-0" /> : <ChevronRight size={8} className="text-muted-foreground flex-shrink-0" />
+                      ) : <div className="w-2" />}
+                      <span className="text-muted-foreground text-[10px]">
+                        {new Date(log.timestamp).toLocaleTimeString()}
+                      </span>
+                      <span className={`font-bold ${agentColors[log.agent] || 'text-foreground'}`}>
+                        [{log.agent}]
+                      </span>
+                    </button>
+                    <div className="text-foreground/80 ml-4 text-[11px]">{log.message}</div>
+                    {log.data && isExpanded && (
+                      <pre className="text-terminal-green ml-4 mt-0.5 text-[10px] leading-relaxed whitespace-pre-wrap">
+                        {JSON.stringify(log.data, null, 2)}
+                      </pre>
+                    )}
+                  </div>
+                );
+              })}
+              <div ref={bottomRef} />
             </div>
-          ))}
-          <div ref={bottomRef} />
+          </CollapsibleContent>
         </div>
-      </div>
+      </Collapsible>
     </div>
   );
 }

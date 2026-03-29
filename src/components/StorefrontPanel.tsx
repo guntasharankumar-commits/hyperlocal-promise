@@ -11,6 +11,8 @@ interface StorefrontPanelProps {
   currentOrder: OrderData;
   activeOrders: OrderData[];
   hexGrid: HexCell[];
+  storeConfig: StoreConfig;
+  cacheVersion: number;
   onSelectHex: (id: number) => void;
   onAddToCart: () => void;
   onCheckout: () => void;
@@ -42,6 +44,8 @@ export default function StorefrontPanel({
   currentOrder,
   activeOrders,
   hexGrid,
+  storeConfig,
+  cacheVersion,
   onSelectHex,
   onAddToCart,
   onCheckout,
@@ -53,10 +57,10 @@ export default function StorefrontPanel({
   const promisePerHex = useMemo(() => {
     const map: Record<number, number> = {};
     hexGrid.forEach(hex => {
-      map[hex.id] = getCachedPromise(hex, currentOrder.persona);
+      map[hex.id] = getCachedPromise(hex, currentOrder.persona, storeConfig);
     });
     return map;
-  }, [hexGrid, currentOrder.persona]);
+  }, [hexGrid, currentOrder.persona, storeConfig, cacheVersion]);
 
   const isBrowsing = currentOrder.state === 'BROWSE' || currentOrder.state === 'CHECKOUT';
   const isTracking = currentOrder.state === 'FULFILLMENT' || currentOrder.state === 'RECOVERY' || currentOrder.state === 'DELIVERED';
