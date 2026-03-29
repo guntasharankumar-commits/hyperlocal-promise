@@ -304,6 +304,7 @@ export default function Index() {
               onNewOrder={handleNewOrder}
               onSelectActiveOrder={handleSelectActiveOrder}
               livePromise={livePromise}
+              promiseCache={promiseCache}
             />
           </div>
         </div>
