@@ -1,10 +1,11 @@
 import { useMemo } from 'react';
-import { OrderData, HexCell, UserPersona, PERSONA_CONFIGS, getCachedPromise, FULFILLMENT_STEPS, FulfillmentStatus, StoreConfig, DEFAULT_STORE_CONFIG } from '@/lib/simulation';
+import { OrderData, HexCell, UserPersona, PERSONA_CONFIGS, FULFILLMENT_STEPS, FulfillmentStatus, StoreConfig } from '@/lib/simulation';
+import { UsePromiseCacheReturn, getCacheKey } from '@/hooks/usePromiseCache';
 import LeafletHexMap from './LeafletHexMap';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ShoppingCart, CreditCard, MapPin, Clock, Package, User, CheckCircle, Circle, Truck, Plus } from 'lucide-react';
+import { ShoppingCart, CreditCard, MapPin, Clock, Package, User, CheckCircle, Circle, Truck, Plus, RefreshCw } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 
 interface StorefrontPanelProps {
@@ -20,6 +21,7 @@ interface StorefrontPanelProps {
   onNewOrder: () => void;
   onSelectActiveOrder: (orderId: string) => void;
   livePromise: number;
+  promiseCache: UsePromiseCacheReturn;
 }
 
 const statusLabels: Record<FulfillmentStatus, string> = {
@@ -53,14 +55,17 @@ export default function StorefrontPanel({
   onNewOrder,
   onSelectActiveOrder,
   livePromise,
+  promiseCache,
 }: StorefrontPanelProps) {
+  // Build promisePerHex from the full cache for the current persona
   const promisePerHex = useMemo(() => {
     const map: Record<number, number> = {};
     hexGrid.forEach(hex => {
-      map[hex.id] = getCachedPromise(hex, currentOrder.persona, storeConfig);
+      const entry = promiseCache.cache[getCacheKey(currentOrder.persona, hex.id)];
+      map[hex.id] = entry?.promise ?? 0;
     });
     return map;
-  }, [hexGrid, currentOrder.persona, storeConfig, cacheVersion]);
+  }, [hexGrid, currentOrder.persona, promiseCache.cache]);
 
   const isBrowsing = currentOrder.state === 'BROWSE' || currentOrder.state === 'CHECKOUT';
   const isTracking = currentOrder.state === 'FULFILLMENT' || currentOrder.state === 'RECOVERY' || currentOrder.state === 'DELIVERED';
@@ -151,13 +156,31 @@ export default function StorefrontPanel({
             </div>
           </div>
 
-          {/* Promise + Actions */}
+          {/* Cache Timer + Promise */}
           <div className="px-3 py-2.5 border-t border-border flex-shrink-0">
+            {/* Cache refresh timer */}
+            {currentOrder.state === 'BROWSE' && (
+              <div className="flex items-center justify-between mb-2 bg-secondary/50 rounded px-2 py-1">
+                <div className="flex items-center gap-1.5">
+                  <RefreshCw size={10} className="text-muted-foreground" />
+                  <span className="text-[9px] font-mono text-muted-foreground">NEXT CACHE REFRESH</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-mono font-bold text-foreground">
+                    {Math.floor(promiseCache.secondsUntilRefresh / 60)}:{String(promiseCache.secondsUntilRefresh % 60).padStart(2, '0')}
+                  </span>
+                  {promiseCache.triggerReason && (
+                    <Badge variant="secondary" className="text-[8px]">{promiseCache.triggerReason}</Badge>
+                  )}
+                </div>
+              </div>
+            )}
+
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2">
                 <Clock size={14} className="text-neon" />
                 <span className="text-[10px] font-mono text-muted-foreground">
-                  {currentOrder.state === 'BROWSE' ? 'CACHED PROMISE' : 'ACTUAL PROMISE'}
+                  {currentOrder.state === 'BROWSE' ? 'TES-OPTIMIZED PROMISE' : 'ACTUAL PROMISE'}
                 </span>
               </div>
               <AnimatePresence mode="wait">
