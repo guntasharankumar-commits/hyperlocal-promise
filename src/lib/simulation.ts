@@ -5,7 +5,7 @@ export interface PersonaConfig {
   label: string;
   description: string;
   baseTESModifier: number;
-  promisePadding: number; // extra minutes added to promise for safety
+  promisePadding: number;
 }
 
 export const PERSONA_CONFIGS: Record<UserPersona, PersonaConfig> = {
@@ -25,18 +25,18 @@ export interface Rider {
   localityAwareness: number;
   status: 'idle' | 'assigned' | 'en-route' | 'delivering';
   hexPosition: number;
-  ordersCompleted: Record<string, number>; // hexLabel -> count
+  ordersCompleted: Record<string, number>;
 }
 
 export const RIDER_DATABASE: Rider[] = [
-  { id: 'R1', name: 'Arjun', archetype: 'The Pro', rating: 4.8, speedFactor: 1.0, localityAwareness: 9, status: 'idle', hexPosition: 2, ordersCompleted: { H0: 45, H1: 32, H2: 28, H3: 15, H4: 50, H5: 22, H6: 10 } },
-  { id: 'R2', name: 'Vikram', archetype: 'The Speedster', rating: 3.6, speedFactor: 1.4, localityAwareness: 6, status: 'idle', hexPosition: 5, ordersCompleted: { H0: 12, H1: 8, H2: 55, H3: 3, H4: 20, H5: 60, H6: 18 } },
-  { id: 'R3', name: 'Priya', archetype: 'The Rookie', rating: 3.2, speedFactor: 0.8, localityAwareness: 3, status: 'idle', hexPosition: 8, ordersCompleted: { H0: 2, H1: 1, H2: 3, H3: 0, H4: 5, H5: 2, H6: 8 } },
-  { id: 'R4', name: 'Rahul', archetype: 'The Veteran', rating: 4.5, speedFactor: 0.95, localityAwareness: 8, status: 'idle', hexPosition: 4, ordersCompleted: { H0: 38, H1: 42, H2: 35, H3: 30, H4: 55, H5: 28, H6: 20 } },
-  { id: 'R5', name: 'Meera', archetype: 'The Navigator', rating: 4.2, speedFactor: 1.1, localityAwareness: 10, status: 'idle', hexPosition: 1, ordersCompleted: { H0: 25, H1: 50, H2: 15, H3: 40, H4: 35, H5: 30, H6: 45 } },
+  { id: 'R1', name: 'Arjun', archetype: 'The Pro', rating: 4.8, speedFactor: 1.0, localityAwareness: 9, status: 'idle', hexPosition: 2, ordersCompleted: { H0: 45, H1: 32, H2: 28, H3: 15, H4: 50, H5: 22, H6: 10, H7: 18, H8: 25, H9: 12 } },
+  { id: 'R2', name: 'Vikram', archetype: 'The Speedster', rating: 3.6, speedFactor: 1.4, localityAwareness: 6, status: 'idle', hexPosition: 5, ordersCompleted: { H0: 12, H1: 8, H2: 55, H3: 3, H4: 20, H5: 60, H6: 18, H7: 5, H8: 30, H9: 15 } },
+  { id: 'R3', name: 'Priya', archetype: 'The Rookie', rating: 3.2, speedFactor: 0.8, localityAwareness: 3, status: 'idle', hexPosition: 8, ordersCompleted: { H0: 2, H1: 1, H2: 3, H3: 0, H4: 5, H5: 2, H6: 8, H7: 1, H8: 4, H9: 0 } },
+  { id: 'R4', name: 'Rahul', archetype: 'The Veteran', rating: 4.5, speedFactor: 0.95, localityAwareness: 8, status: 'idle', hexPosition: 4, ordersCompleted: { H0: 38, H1: 42, H2: 35, H3: 30, H4: 55, H5: 28, H6: 20, H7: 22, H8: 40, H9: 18 } },
+  { id: 'R5', name: 'Meera', archetype: 'The Navigator', rating: 4.2, speedFactor: 1.1, localityAwareness: 10, status: 'idle', hexPosition: 1, ordersCompleted: { H0: 25, H1: 50, H2: 15, H3: 40, H4: 35, H5: 30, H6: 45, H7: 15, H8: 28, H9: 20 } },
 ];
 
-// ---- Hex Grid ----
+// ---- Hex Grid (19 hexagons – 2 rings around center store) ----
 export interface HexCell {
   id: number;
   col: number;
@@ -53,32 +53,51 @@ export const STORE_LOCATION = { lat: 12.9352, lng: 77.6120 };
 
 export function generateHexGrid(): HexCell[] {
   const hexes: HexCell[] = [];
-  const labels = ['H0','H1','H2','H3','H4','H5','H6'];
-  
-  // Generate a ring of hexagons around the store
-  // Center hex is the store (H4)
-  // Using ~0.008 degree offset (~800m) for hex spacing
-  const offset = 0.008;
-  const positions = [
-    { col: 0, row: 0, dlat: offset, dlng: 0 },         // H0 - North
-    { col: 1, row: 0, dlat: offset/2, dlng: offset },   // H1 - NE
-    { col: 2, row: 0, dlat: -offset/2, dlng: offset },  // H2 - SE
-    { col: 0, row: 1, dlat: -offset, dlng: 0 },         // H3 - South
-    { col: 1, row: 1, dlat: 0, dlng: 0 },               // H4 - Center (Store)
-    { col: 2, row: 1, dlat: offset/2, dlng: -offset },  // H5 - NW
-    { col: 0, row: 2, dlat: -offset/2, dlng: -offset }, // H6 - SW
+  const offset = 0.006; // ~600m per hex spacing
+
+  // Ring 0: Center (store)
+  const positions: { dlat: number; dlng: number; ring: number }[] = [
+    { dlat: 0, dlng: 0, ring: 0 }, // H0 - Center/Store
   ];
+
+  // Ring 1: 6 hexagons
+  for (let i = 0; i < 6; i++) {
+    const angle = (Math.PI / 3) * i;
+    positions.push({
+      dlat: offset * Math.cos(angle),
+      dlng: offset * Math.sin(angle),
+      ring: 1,
+    });
+  }
+
+  // Ring 2: 12 hexagons
+  for (let i = 0; i < 6; i++) {
+    const angle = (Math.PI / 3) * i;
+    // Outer corners
+    positions.push({
+      dlat: 2 * offset * Math.cos(angle),
+      dlng: 2 * offset * Math.sin(angle),
+      ring: 2,
+    });
+    // Outer edges (between corners)
+    const midAngle = (Math.PI / 3) * i + Math.PI / 6;
+    positions.push({
+      dlat: Math.sqrt(3) * offset * Math.cos(midAngle),
+      dlng: Math.sqrt(3) * offset * Math.sin(midAngle),
+      ring: 2,
+    });
+  }
 
   positions.forEach((pos, i) => {
     const dist = Math.sqrt(pos.dlat ** 2 + pos.dlng ** 2) / offset;
-    const baseTime = i === 4 ? 2 : 3 + dist * 4;
+    const baseTime = i === 0 ? 2 : 3 + dist * 3.5;
     hexes.push({
       id: i,
-      col: pos.col,
-      row: pos.row,
+      col: i % 5,
+      row: Math.floor(i / 5),
       baseS2DMinutes: Math.round(baseTime * 10) / 10,
       variance: Math.round((Math.random() * 2 - 0.5) * 10) / 10,
-      label: labels[i],
+      label: `H${i}`,
       lat: STORE_LOCATION.lat + pos.dlat,
       lng: STORE_LOCATION.lng + pos.dlng,
     });
@@ -139,7 +158,7 @@ export function calculateTES(
 export function getCachedPromise(hex: HexCell, persona: UserPersona): number {
   const config = PERSONA_CONFIGS[persona];
   const s2d = calculateS2D(hex);
-  return Math.ceil(s2d + 2 + 1.0 + config.promisePadding); // base picking variance = 1.0
+  return Math.ceil(s2d + 2 + 1.0 + config.promisePadding);
 }
 
 // ---- Order State Machine ----
@@ -157,7 +176,7 @@ export interface OrderData {
   tes: number;
   startTime: number | null;
   persona: UserPersona;
-  delays: Partial<Record<FulfillmentStatus, number>>; // delay in seconds per status
+  delays: Partial<Record<FulfillmentStatus, number>>;
 }
 
 export const initialOrder: OrderData = {
@@ -177,9 +196,22 @@ export const initialOrder: OrderData = {
 // ---- Agent Log Types ----
 export interface AgentLog {
   timestamp: number;
-  agent: 'PROMISE' | 'ASSIGNMENT' | 'RECOVERY' | 'SYSTEM';
+  agent: 'PROMISE' | 'ASSIGNMENT' | 'RECOVERY' | 'SYSTEM' | 'DATABASE';
   message: string;
   data?: Record<string, unknown>;
+}
+
+// ---- Agent Pipeline Step ----
+export type AgentStepStatus = 'pending' | 'running' | 'done' | 'error';
+
+export interface AgentPipelineStep {
+  agent: AgentLog['agent'];
+  label: string;
+  status: AgentStepStatus;
+  startedAt?: number;
+  completedAt?: number;
+  input?: Record<string, unknown>;
+  output?: Record<string, unknown>;
 }
 
 // ---- Recovery: find best rider by locality ----
@@ -210,3 +242,6 @@ export function getNextFulfillmentStatus(current: FulfillmentStatus): Fulfillmen
 export function generateOrderId(): string {
   return `ORD-${Date.now().toString(36).toUpperCase().slice(-5)}`;
 }
+
+// Store hex ID (center of grid)
+export const STORE_HEX_ID = 0;
