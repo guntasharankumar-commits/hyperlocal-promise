@@ -34,6 +34,8 @@ export default function Index() {
   const [pipelineSteps, setPipelineSteps] = useState<AgentPipelineStep[]>([]);
   const [riders, setRiders] = useState<Rider[]>(RIDER_DATABASE.map(r => ({ ...r })));
   const [storeConfig, setStoreConfig] = useState<StoreConfig>({ ...DEFAULT_STORE_CONFIG });
+  const [cacheVersion, setCacheVersion] = useState(0);
+  const invalidateCache = useCallback(() => setCacheVersion(v => v + 1), []);
 
   const currentOrder = activeOrders[currentOrderIndex] || activeOrders[0] || { ...initialOrder };
 
@@ -95,8 +97,7 @@ export default function Index() {
       addLog('PROMISE', '🔄 Calculating TES for P=5..18 with O2S + S2D...');
 
       setTimeout(() => {
-        const bestRider = selectBestRider(riders, currentOrder.selectedHex);
-        const tes = calculateTES(liveS2D, bestRider.rating, storeConfig, personaConfig.baseTESModifier);
+        const { rider: bestRider, tes } = selectBestRider(riders, currentOrder.selectedHex, liveS2D, storeConfig, personaConfig.baseTESModifier);
 
         // Log full breakdown
         addLog('PROMISE', `📊 TES breakdown (O2S=${tes.o2s}m, S2D=${tes.s2d}m, D=${tes.plannedD}m):`, {
@@ -114,10 +115,10 @@ export default function Index() {
 
         setTimeout(() => {
           setPipelineSteps(prev => prev.map(s =>
-            s.agent === 'ASSIGNMENT' ? { ...s, status: 'done' as const, output: { rider: bestRider.name, archetype: bestRider.archetype, rating: bestRider.rating } } : s
+            s.agent === 'ASSIGNMENT' ? { ...s, status: 'done' as const, output: { rider: bestRider.name, archetype: bestRider.archetype, rating: bestRider.rating, reason: 'Max TES rider' } } : s
           ));
 
-          addLog('ASSIGNMENT', `🏍️ Locked rider: ${bestRider.name} (${bestRider.archetype})`, {
+          addLog('ASSIGNMENT', `🏍️ Locked rider: ${bestRider.name} (${bestRider.archetype}) — best TES`, {
             rating: bestRider.rating, speed: bestRider.speedFactor,
           });
 
@@ -133,10 +134,12 @@ export default function Index() {
             assignedRider: bestRider,
             startTime: Date.now(),
           }));
+
+          invalidateCache();
         }, 600);
       }, 800);
     }, 600);
-  }, [riders, currentOrder.selectedHex, currentOrder.persona, liveS2D, storeConfig, personaConfig, addLog, updateCurrentOrder]);
+  }, [riders, currentOrder.selectedHex, currentOrder.persona, liveS2D, storeConfig, personaConfig, addLog, updateCurrentOrder, invalidateCache]);
 
   const handleAdvanceStatus = useCallback((orderId: string) => {
     updateOrderById(orderId, (prev) => {
@@ -152,6 +155,7 @@ export default function Index() {
           if (prev.assignedRider) {
             setRiders(r => r.map(rider => rider.id === prev.assignedRider!.id ? { ...rider, status: 'idle' } : rider));
           }
+          invalidateCache();
         }, 500);
         return { ...prev, fulfillmentStatus: next, state: 'DELIVERED' };
       }
@@ -265,6 +269,8 @@ export default function Index() {
               currentOrder={currentOrder}
               activeOrders={activeOrders}
               hexGrid={hexGrid}
+              storeConfig={storeConfig}
+              cacheVersion={cacheVersion}
               onSelectHex={handleSelectHex}
               onAddToCart={handleAddToCart}
               onCheckout={handleCheckout}
@@ -304,7 +310,7 @@ export default function Index() {
               riders={riders}
               hexGrid={hexGrid}
               storeConfig={storeConfig}
-              onStoreConfigChange={setStoreConfig}
+              onStoreConfigChange={(cfg: StoreConfig) => { setStoreConfig(cfg); invalidateCache(); }}
               onAddDelay={handleAddDelay}
               onAdvanceStatus={handleAdvanceStatus}
               onReset={handleReset}
