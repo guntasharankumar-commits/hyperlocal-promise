@@ -129,12 +129,26 @@ export function calculateS2D(hex: HexCell): number {
 }
 
 // ---- TES Calculation ----
+export interface TESWeights {
+  W1: number;
+  W2: number;
+  W3: number;
+  cost: number;
+  personaModifier: number;
+  W1_reason: string;
+  W2_reason: string;
+  W3_reason: string;
+}
+
 export interface TESResult {
   optimalPromise: number;
-  minTES: number;
+  maxTES: number;
   o2s: number;
   s2d: number;
   plannedD: number;
+  weights: TESWeights;
+  anchorDiff: number; // optimalPromise - 10 (anchor)
+  promiseVsPlanned: number; // optimalPromise - plannedD
   breakdown: { promise: number; tes: number }[];
 }
 
@@ -143,7 +157,7 @@ export function calculateTES(
   riderRating: number,
   storeConfig: StoreConfig,
   personaModifier: number = 0,
-  actualO2S?: number, // used in recovery with actual elapsed O2S
+  actualO2S?: number,
 ): TESResult {
   const W1 = 1.2;
   const W2_base = 2.0;
@@ -154,7 +168,7 @@ export function calculateTES(
   const cost = storeConfig.pickingVariance * 0.5 + storeConfig.packingVariance * 0.3;
 
   const breakdown: { promise: number; tes: number }[] = [];
-  let minTES = Infinity;
+  let maxTES = -Infinity;
   let optimalPromise = 10;
 
   for (let P = 5; P <= 18; P++) {
@@ -170,23 +184,46 @@ export function calculateTES(
     const rounded = Math.round(tes * 10) / 10;
     breakdown.push({ promise: P, tes: rounded });
 
-    // Find minimum TES (most aggressive feasible promise)
-    if (rounded < minTES && P >= Math.ceil(D)) {
-      minTES = rounded;
+    // Find maximum TES (best customer experience promise)
+    if (rounded > maxTES && P >= Math.ceil(D)) {
+      maxTES = rounded;
       optimalPromise = P;
     }
   }
 
   // If no promise >= D was found, pick the one closest to D
-  if (minTES === Infinity) {
+  if (maxTES === -Infinity) {
     const closestToD = breakdown.reduce((best, cur) =>
       Math.abs(cur.promise - D) < Math.abs(best.promise - D) ? cur : best
     );
     optimalPromise = closestToD.promise;
-    minTES = closestToD.tes;
+    maxTES = closestToD.tes;
   }
 
-  return { optimalPromise, minTES, o2s: Math.round(o2s * 10) / 10, s2d: Math.round(s2dMinutes * 10) / 10, plannedD: Math.round(D * 10) / 10, breakdown };
+  const finalW2 = optimalPromise < D ? W2_base * Math.exp((D - optimalPromise) * 0.5) : W2_base;
+
+  const weights: TESWeights = {
+    W1,
+    W2: finalW2,
+    W3,
+    cost,
+    personaModifier,
+    W1_reason: `Aggressiveness: (10-${optimalPromise})³ × ${W1} — rewards tighter promises`,
+    W2_reason: `Feasibility: cushion(${(optimalPromise - D).toFixed(1)}m) × ${finalW2.toFixed(1)} — penalizes if P < D`,
+    W3_reason: `Rider quality: (${riderRating}-4) × ${W3} — higher rated riders boost TES`,
+  };
+
+  return {
+    optimalPromise,
+    maxTES,
+    o2s: Math.round(o2s * 10) / 10,
+    s2d: Math.round(s2dMinutes * 10) / 10,
+    plannedD: Math.round(D * 10) / 10,
+    weights,
+    anchorDiff: optimalPromise - 10,
+    promiseVsPlanned: Math.round((optimalPromise - D) * 10) / 10,
+    breakdown,
+  };
 }
 
 // ---- Cached Promise (for Browse mode per hex) ----
@@ -274,8 +311,8 @@ export function selectBestRider(
 
   for (const r of idle) {
     const tes = calculateTES(s2dMinutes, r.rating, storeConfig, personaModifier);
-    // Choose rider that yields minimum TES (most aggressive optimal promise)
-    if (tes.minTES < bestTes.minTES) {
+    // Choose rider that yields maximum TES (best customer experience)
+    if (tes.maxTES > bestTes.maxTES) {
       bestRider = r;
       bestTes = tes;
     }
