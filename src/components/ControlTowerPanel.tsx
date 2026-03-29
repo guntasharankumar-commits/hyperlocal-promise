@@ -60,7 +60,7 @@ export default function ControlTowerPanel({ logs, pipelineSteps, selectedOrder }
               TES Score — {selectedOrder.id || 'Pending'}
             </span>
           </div>
-          <TESGauge value={selectedOrder.tes} promiseMinutes={selectedOrder.promiseMinutes ?? 0} />
+          <TESGauge value={selectedOrder.tes} />
         </div>
       )}
 
