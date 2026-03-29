@@ -161,10 +161,11 @@ export default function Index() {
           }));
 
           invalidateCache();
+          promiseCache.forceRefresh(`Order placed in H${currentOrder.selectedHex}`);
         }, 600);
       }, 800);
     }, 600);
-  }, [riders, currentOrder.selectedHex, currentOrder.persona, liveS2D, storeConfig, personaConfig, hexGrid, addLog, updateCurrentOrder, invalidateCache]);
+  }, [riders, currentOrder.selectedHex, currentOrder.persona, liveS2D, storeConfig, personaConfig, hexGrid, addLog, updateCurrentOrder, invalidateCache, promiseCache]);
 
   const handleAdvanceStatus = useCallback((orderId: string) => {
     updateOrderById(orderId, (prev) => {
