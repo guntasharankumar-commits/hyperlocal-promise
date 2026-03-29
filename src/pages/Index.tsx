@@ -61,7 +61,7 @@ export default function Index() {
 
   const cachedEntry = promiseCache.cache[getCacheKey(currentOrder.persona, currentOrder.selectedHex)];
   const livePromise = currentOrder.state === 'BROWSE'
-    ? (cachedEntry?.promise ?? Math.ceil(calculateO2S(storeConfig) + liveS2D + personaConfig.promisePadding))
+    ? (cachedEntry?.best.promise ?? Math.ceil(calculateO2S(storeConfig) + liveS2D + personaConfig.promisePadding))
     : (currentOrder.promiseMinutes ?? Math.ceil(calculateO2S(storeConfig) + liveS2D + personaConfig.promisePadding));
 
   const handleSelectHex = useCallback((id: number) => {
@@ -322,6 +322,7 @@ export default function Index() {
               pipelineSteps={pipelineSteps}
               selectedOrder={currentOrder}
               riders={riders}
+              promiseCache={promiseCache}
             />
           </div>
         </div>
