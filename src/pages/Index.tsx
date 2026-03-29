@@ -314,6 +314,7 @@ export default function Index() {
               logs={logs}
               pipelineSteps={pipelineSteps}
               selectedOrder={currentOrder}
+              riders={riders}
             />
           </div>
         </div>
@@ -331,7 +332,19 @@ export default function Index() {
               riders={riders}
               hexGrid={hexGrid}
               storeConfig={storeConfig}
-              onStoreConfigChange={(cfg: StoreConfig) => { setStoreConfig(cfg); invalidateCache(); }}
+              onStoreConfigChange={(cfg: StoreConfig) => {
+                const oldO2S = calculateO2S(storeConfig);
+                const newO2S = calculateO2S(cfg);
+                setStoreConfig(cfg);
+                invalidateCache();
+                if (Math.abs(oldO2S - newO2S) > 0.01) {
+                  addLog('DATABASE', `🔄 Store config updated — O2S revised: ${oldO2S.toFixed(1)}m → ${newO2S.toFixed(1)}m`, {
+                    pick: `${cfg.avgPickingTime}m ±${cfg.pickingVariance}`,
+                    pack: `${cfg.avgPackingTime}m ±${cfg.packingVariance}`,
+                    newO2S: newO2S.toFixed(1),
+                  });
+                }
+              }}
               onAddDelay={handleAddDelay}
               onAdvanceStatus={handleAdvanceStatus}
               onReset={handleReset}
