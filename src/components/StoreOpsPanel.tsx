@@ -1,14 +1,17 @@
-import { OrderData, Rider, FULFILLMENT_STEPS, FulfillmentStatus, HexCell } from '@/lib/simulation';
+import { OrderData, Rider, FULFILLMENT_STEPS, FulfillmentStatus, HexCell, StoreConfig } from '@/lib/simulation';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { AlertTriangle, Package, Star, Plus } from 'lucide-react';
+import { Slider } from '@/components/ui/slider';
+import { AlertTriangle, Package, Star, Plus, Settings } from 'lucide-react';
 
 interface StoreOpsPanelProps {
   activeOrders: OrderData[];
   pastOrders: OrderData[];
   riders: Rider[];
   hexGrid: HexCell[];
+  storeConfig: StoreConfig;
+  onStoreConfigChange: (config: StoreConfig) => void;
   onAddDelay: (orderId: string, status: FulfillmentStatus, delaySec: number) => void;
   onAdvanceStatus: (orderId: string) => void;
   onReset: () => void;
@@ -28,12 +31,18 @@ export default function StoreOpsPanel({
   pastOrders,
   riders,
   hexGrid,
+  storeConfig,
+  onStoreConfigChange,
   onAddDelay,
   onAdvanceStatus,
   onReset,
 }: StoreOpsPanelProps) {
   const allOrders = [...activeOrders.filter(o => o.id), ...pastOrders];
   const liveOrders = activeOrders.filter(o => o.id && o.state !== 'DELIVERED');
+
+  const updateConfig = (key: keyof StoreConfig, value: number) => {
+    onStoreConfigChange({ ...storeConfig, [key]: value });
+  };
 
   return (
     <div className="space-y-3 h-full flex flex-col">
@@ -51,6 +60,7 @@ export default function StoreOpsPanel({
         <TabsList className="bg-secondary w-full">
           <TabsTrigger value="orders" className="flex-1 text-[10px] font-mono">Queue ({allOrders.length})</TabsTrigger>
           <TabsTrigger value="manage" className="flex-1 text-[10px] font-mono">Manage ({liveOrders.length})</TabsTrigger>
+          <TabsTrigger value="config" className="flex-1 text-[10px] font-mono">Config</TabsTrigger>
           <TabsTrigger value="riders" className="flex-1 text-[10px] font-mono">Riders</TabsTrigger>
         </TabsList>
 
@@ -127,6 +137,74 @@ export default function StoreOpsPanel({
               )}
             </div>
           ))}
+        </TabsContent>
+
+        {/* Store Config */}
+        <TabsContent value="config" className="flex-1 overflow-y-auto terminal-scrollbar mt-2 space-y-4">
+          <div className="flex items-center gap-2 mb-1">
+            <Settings size={14} className="text-neon" />
+            <span className="text-xs font-display font-bold text-foreground">Store Config</span>
+          </div>
+
+          <div className="space-y-4">
+            <div>
+              <div className="flex justify-between mb-1">
+                <span className="text-[10px] font-mono text-muted-foreground">Avg Picking Time</span>
+                <span className="text-[10px] font-mono font-bold text-foreground">{storeConfig.avgPickingTime} min</span>
+              </div>
+              <Slider
+                value={[storeConfig.avgPickingTime]}
+                onValueChange={([v]) => updateConfig('avgPickingTime', v)}
+                min={1} max={10} step={0.5}
+              />
+            </div>
+
+            <div>
+              <div className="flex justify-between mb-1">
+                <span className="text-[10px] font-mono text-muted-foreground">Picking Variance</span>
+                <span className="text-[10px] font-mono font-bold text-foreground">{storeConfig.pickingVariance} min</span>
+              </div>
+              <Slider
+                value={[storeConfig.pickingVariance]}
+                onValueChange={([v]) => updateConfig('pickingVariance', v)}
+                min={0} max={3} step={0.1}
+              />
+            </div>
+
+            <div>
+              <div className="flex justify-between mb-1">
+                <span className="text-[10px] font-mono text-muted-foreground">Avg Packing Time</span>
+                <span className="text-[10px] font-mono font-bold text-foreground">{storeConfig.avgPackingTime} min</span>
+              </div>
+              <Slider
+                value={[storeConfig.avgPackingTime]}
+                onValueChange={([v]) => updateConfig('avgPackingTime', v)}
+                min={1} max={5} step={0.5}
+              />
+            </div>
+
+            <div>
+              <div className="flex justify-between mb-1">
+                <span className="text-[10px] font-mono text-muted-foreground">Packing Variance</span>
+                <span className="text-[10px] font-mono font-bold text-foreground">{storeConfig.packingVariance} min</span>
+              </div>
+              <Slider
+                value={[storeConfig.packingVariance]}
+                onValueChange={([v]) => updateConfig('packingVariance', v)}
+                min={0} max={3} step={0.1}
+              />
+            </div>
+
+            <div className="bg-secondary rounded-lg p-2.5 mt-2">
+              <div className="text-[10px] font-mono text-muted-foreground mb-1">Computed O2S (Order-to-Store)</div>
+              <div className="text-lg font-mono font-bold text-neon">
+                {(storeConfig.avgPickingTime + storeConfig.pickingVariance + storeConfig.avgPackingTime + storeConfig.packingVariance).toFixed(1)} min
+              </div>
+              <div className="text-[9px] font-mono text-muted-foreground mt-1">
+                = Pick({storeConfig.avgPickingTime}) + PV({storeConfig.pickingVariance}) + Pack({storeConfig.avgPackingTime}) + PKV({storeConfig.packingVariance})
+              </div>
+            </div>
+          </div>
         </TabsContent>
 
         {/* Riders */}

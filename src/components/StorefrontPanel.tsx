@@ -117,7 +117,7 @@ export default function StorefrontPanel({
               <SelectTrigger className="h-8 text-xs font-mono bg-secondary border-border">
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="z-[9999]">
                 {(Object.entries(PERSONA_CONFIGS) as [UserPersona, typeof PERSONA_CONFIGS[UserPersona]][]).map(([key, cfg]) => (
                   <SelectItem key={key} value={key} className="text-xs font-mono">
                     {cfg.label} — {cfg.description}
