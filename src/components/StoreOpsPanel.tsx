@@ -5,7 +5,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Slider } from '@/components/ui/slider';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { AlertTriangle, Package, Star, Plus, Settings, ChevronDown, ChevronRight } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import GuidedHint from './GuidedHint';
+import { AnimatePresence } from 'framer-motion';
 
 interface StoreOpsPanelProps {
   activeOrders: OrderData[];
@@ -132,11 +134,26 @@ export default function StoreOpsPanel({
         </div>
       </Collapsible>
 
+      {/* Guided hint when orders are live */}
+      <AnimatePresence>
+        {liveOrders.length > 0 && (
+          <GuidedHint step={5} totalSteps={6} message="Use Pipeline tab → 'Advance Status' to progress the order" subtext="Inject a +30s delay at 'picked' to see the Recovery Agent activate!" variant="action" />
+        )}
+      </AnimatePresence>
+
       {/* Order & Rider Management — 3 tabs */}
-      <Tabs defaultValue="orders" className="flex-1 flex flex-col min-h-0">
+      <Tabs defaultValue={liveOrders.length > 0 ? 'manage' : 'orders'} className="flex-1 flex flex-col min-h-0">
         <TabsList className="bg-secondary w-full">
           <TabsTrigger value="orders" className="flex-1 text-[10px] font-mono">Orders ({allOrders.length})</TabsTrigger>
-          <TabsTrigger value="manage" className="flex-1 text-[10px] font-mono">Pipeline ({liveOrders.length})</TabsTrigger>
+          <TabsTrigger value="manage" className="flex-1 text-[10px] font-mono relative">
+            Pipeline ({liveOrders.length})
+            {liveOrders.length > 0 && (
+              <span className="relative flex h-2 w-2 ml-1">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-neon opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-neon"></span>
+              </span>
+            )}
+          </TabsTrigger>
           <TabsTrigger value="riders" className="flex-1 text-[10px] font-mono">Riders ({riders.length})</TabsTrigger>
         </TabsList>
 
@@ -188,8 +205,8 @@ export default function StoreOpsPanel({
                         {order.delays[step] && <Badge variant="destructive" className="text-[8px]">+{order.delays[step]}s</Badge>}
                       </div>
                       {(isActive || isFuture) && order.state !== 'DELIVERED' && (
-                        <Button variant="ghost" size="sm" className="h-5 px-1.5 text-[9px] font-mono text-amber-warn hover:text-amber-warn gap-1" onClick={() => onAddDelay(order.id, step, 30)}>
-                          <AlertTriangle size={9} /> +30s
+                        <Button variant="ghost" size="sm" className={`h-5 px-1.5 text-[9px] font-mono text-amber-warn hover:text-amber-warn gap-1 ${step === 'picked' && !order.delays.picked ? 'ring-1 ring-recovery-gold/50 animate-pulse' : ''}`} onClick={() => onAddDelay(order.id, step, 30)}>
+                          <AlertTriangle size={9} /> +30s {step === 'picked' && !order.delays.picked && '← Try this!'}
                         </Button>
                       )}
                     </div>
