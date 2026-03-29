@@ -130,7 +130,8 @@ export default function ControlTowerPanel({ logs, pipelineSteps, selectedOrder, 
               )}
             </div>
           </div>
-        )}
+      </div>
+
       {/* TES Score — Collapsible */}
       {selectedOrder && selectedOrder.tes !== 0 && (
         <Collapsible open={tesOpen} onOpenChange={setTesOpen}>
