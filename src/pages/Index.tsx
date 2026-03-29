@@ -2,6 +2,7 @@ import { useState, useCallback, useMemo } from 'react';
 import StorefrontPanel from '@/components/StorefrontPanel';
 import StoreOpsPanel from '@/components/StoreOpsPanel';
 import ControlTowerPanel from '@/components/ControlTowerPanel';
+import { usePromiseCache, getCacheKey } from '@/hooks/usePromiseCache';
 import {
   generateHexGrid,
   calculateS2D,
@@ -9,7 +10,6 @@ import {
   calculateO2S,
   selectBestRider,
   findRecoveryRider,
-  getCachedPromise,
   getNextFulfillmentStatus,
   generateOrderId,
   RIDER_DATABASE,
@@ -35,7 +35,10 @@ export default function Index() {
   const [riders, setRiders] = useState<Rider[]>(RIDER_DATABASE.map(r => ({ ...r })));
   const [storeConfig, setStoreConfig] = useState<StoreConfig>({ ...DEFAULT_STORE_CONFIG });
   const [cacheVersion, setCacheVersion] = useState(0);
-  const invalidateCache = useCallback(() => setCacheVersion(v => v + 1), []);
+  const promiseCache = usePromiseCache(hexGrid, riders, storeConfig, addLog);
+  const invalidateCache = useCallback(() => {
+    setCacheVersion(v => v + 1);
+  }, []);
 
   const currentOrder = activeOrders[currentOrderIndex] || activeOrders[0] || { ...initialOrder };
 
@@ -55,9 +58,10 @@ export default function Index() {
   const liveS2D = calculateS2D(selectedHexCell);
   const personaConfig = PERSONA_CONFIGS[currentOrder.persona];
 
+  const cachedEntry = promiseCache.cache[getCacheKey(currentOrder.persona, currentOrder.selectedHex)];
   const livePromise = currentOrder.state === 'BROWSE'
-    ? getCachedPromise(selectedHexCell, currentOrder.persona, storeConfig)
-    : Math.ceil(calculateO2S(storeConfig) + liveS2D + personaConfig.promisePadding);
+    ? (cachedEntry?.promise ?? Math.ceil(calculateO2S(storeConfig) + liveS2D + personaConfig.promisePadding))
+    : (currentOrder.promiseMinutes ?? Math.ceil(calculateO2S(storeConfig) + liveS2D + personaConfig.promisePadding));
 
   const handleSelectHex = useCallback((id: number) => {
     if (currentOrder.state !== 'BROWSE' && currentOrder.state !== 'CHECKOUT') return;
