@@ -60,14 +60,9 @@ export default function StoreOpsPanel({
 
   return (
     <div className="space-y-3 h-full flex flex-col">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Package size={14} className="text-neon" />
-          <h2 className="font-display font-bold text-foreground text-xs tracking-wide uppercase">Store Ops</h2>
-        </div>
-        <Button onClick={onReset} variant="outline" size="sm" className="font-mono text-[10px] h-7">
-          RESET ALL
-        </Button>
+      <div className="flex items-center gap-2">
+        <Package size={14} className="text-neon" />
+        <h2 className="font-display font-bold text-foreground text-xs tracking-wide uppercase">Store Ops</h2>
       </div>
 
       {/* Store Config — Collapsible separate section */}

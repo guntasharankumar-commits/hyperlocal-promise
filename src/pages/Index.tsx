@@ -350,11 +350,16 @@ export default function Index() {
     <div className="min-h-screen bg-background p-2 md:p-3">
       {/* Title bar */}
       <div className="flex items-center justify-between mb-2 md:mb-3">
-        <div>
-          <h1 className="font-display font-bold text-base md:text-lg text-foreground tracking-tight flex items-center gap-2">
-            <span className="text-neon">⚡</span> Q-Comm Control Tower
-          </h1>
-          <p className="text-[9px] md:text-[10px] font-mono text-muted-foreground">Dark Store Logistics Simulation • Bengaluru</p>
+        <div className="flex items-center gap-3">
+          <div>
+            <h1 className="font-display font-bold text-base md:text-lg text-foreground tracking-tight flex items-center gap-2">
+              <span className="text-neon">⚡</span> Q-Comm Promise Engine
+            </h1>
+            <p className="text-[9px] md:text-[10px] font-mono text-muted-foreground">Dark Store Logistics Simulation • Bengaluru</p>
+          </div>
+          <Button onClick={handleReset} variant="outline" size="sm" className="font-mono text-[10px] h-7">
+            RESET ALL
+          </Button>
         </div>
         <div className="hidden md:flex items-center gap-2">
           {['PROMISE', 'ASSIGNMENT', 'RECOVERY', 'DATABASE'].map(agent => (
