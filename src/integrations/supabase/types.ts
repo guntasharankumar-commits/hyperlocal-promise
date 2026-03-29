@@ -14,7 +14,194 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      customers: {
+        Row: {
+          created_at: string
+          historical_tes: number
+          id: string
+          name: string
+          order_count: number
+          persona: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          historical_tes?: number
+          id?: string
+          name: string
+          order_count?: number
+          persona?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          historical_tes?: number
+          id?: string
+          name?: string
+          order_count?: number
+          persona?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      orders: {
+        Row: {
+          actual_minutes: number | null
+          created_at: string
+          customer_id: string | null
+          delays: Json
+          hex_id: number
+          id: string
+          order_id: string
+          persona: string
+          promise_minutes: number | null
+          rider_id: string | null
+          status: string
+          tes_score: number | null
+          updated_at: string
+        }
+        Insert: {
+          actual_minutes?: number | null
+          created_at?: string
+          customer_id?: string | null
+          delays?: Json
+          hex_id: number
+          id?: string
+          order_id: string
+          persona?: string
+          promise_minutes?: number | null
+          rider_id?: string | null
+          status?: string
+          tes_score?: number | null
+          updated_at?: string
+        }
+        Update: {
+          actual_minutes?: number | null
+          created_at?: string
+          customer_id?: string | null
+          delays?: Json
+          hex_id?: number
+          id?: string
+          order_id?: string
+          persona?: string
+          promise_minutes?: number | null
+          rider_id?: string | null
+          status?: string
+          tes_score?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "orders_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      riders: {
+        Row: {
+          archetype: string
+          created_at: string
+          hex_position: number
+          id: string
+          locality_awareness: number
+          name: string
+          orders_per_hex: Json
+          rating: number
+          rider_id: string
+          speed_factor: number
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          archetype: string
+          created_at?: string
+          hex_position?: number
+          id?: string
+          locality_awareness?: number
+          name: string
+          orders_per_hex?: Json
+          rating?: number
+          rider_id: string
+          speed_factor?: number
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          archetype?: string
+          created_at?: string
+          hex_position?: number
+          id?: string
+          locality_awareness?: number
+          name?: string
+          orders_per_hex?: Json
+          rating?: number
+          rider_id?: string
+          speed_factor?: number
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      store_health: {
+        Row: {
+          id: string
+          packer_congestion: number
+          packing_sla: number
+          picking_sla: number
+          picking_variance: number
+          store_name: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          packer_congestion?: number
+          packing_sla?: number
+          picking_sla?: number
+          picking_variance?: number
+          store_name?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          packer_congestion?: number
+          packing_sla?: number
+          picking_sla?: number
+          picking_variance?: number
+          store_name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      store_locations: {
+        Row: {
+          created_at: string
+          hex_id: number
+          id: string
+          lat: number
+          lng: number
+          name: string
+        }
+        Insert: {
+          created_at?: string
+          hex_id?: number
+          id?: string
+          lat?: number
+          lng?: number
+          name?: string
+        }
+        Update: {
+          created_at?: string
+          hex_id?: number
+          id?: string
+          lat?: number
+          lng?: number
+          name?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
