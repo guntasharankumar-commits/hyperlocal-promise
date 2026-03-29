@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { OrderData, HexCell, UserPersona, PERSONA_CONFIGS, getCachedPromise, FULFILLMENT_STEPS, FulfillmentStatus } from '@/lib/simulation';
+import { OrderData, HexCell, UserPersona, PERSONA_CONFIGS, getCachedPromise, FULFILLMENT_STEPS, FulfillmentStatus, StoreConfig, DEFAULT_STORE_CONFIG } from '@/lib/simulation';
 import LeafletHexMap from './LeafletHexMap';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
