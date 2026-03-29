@@ -1,5 +1,6 @@
 import { useState, useCallback, useMemo } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Button } from '@/components/ui/button';
 import StorefrontPanel from '@/components/StorefrontPanel';
 import StoreOpsPanel from '@/components/StoreOpsPanel';
 import ControlTowerPanel from '@/components/ControlTowerPanel';
