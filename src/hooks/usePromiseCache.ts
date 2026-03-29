@@ -76,6 +76,7 @@ export function usePromiseCache(
   riders: Rider[],
   storeConfig: StoreConfig,
   addLog: (agent: AgentLog['agent'], message: string, data?: Record<string, unknown>) => void,
+  onRefresh?: (reason: string) => void,
 ): UsePromiseCacheReturn {
   const [cache, setCache] = useState<PromiseCache>({});
   const [secondsUntilRefresh, setSecondsUntilRefresh] = useState(REFRESH_INTERVAL_SEC);
@@ -114,7 +115,9 @@ export function usePromiseCache(
     addLog('PROMISE', `📊 Full promise matrix (${Object.keys(newCache).length} entries):`, {
       matrix,
     });
-  }, [hexGrid, riders, storeConfig, addLog]);
+
+    onRefresh?.(reason);
+  }, [hexGrid, riders, storeConfig, addLog, onRefresh]);
 
   // Initial computation
   useEffect(() => {
