@@ -68,7 +68,18 @@ export default function Index() {
 
   const handleSelectPersona = useCallback((persona: UserPersona) => {
     updateCurrentOrder(prev => ({ ...prev, persona }));
-    addLog('SYSTEM', `Persona changed to ${PERSONA_CONFIGS[persona].label}`);
+    const config = PERSONA_CONFIGS[persona];
+    addLog('SYSTEM', `Persona changed to ${config.label}`);
+    addLog('PROMISE', `⚖️ Weight adjustments for ${config.label}:`, {
+      baseTESModifier: config.baseTESModifier,
+      promisePadding: `+${config.promisePadding}m`,
+      description: config.description,
+      effect: config.baseTESModifier > 0 
+        ? `TES boosted by +${config.baseTESModifier} — trusted customer gets tighter promise`
+        : config.baseTESModifier < 0 
+        ? `TES penalized by ${config.baseTESModifier} — padded promise for safety`
+        : 'Neutral modifier — new customer baseline',
+    });
   }, [addLog, updateCurrentOrder]);
 
   const handleAddToCart = useCallback(() => {
@@ -98,28 +109,37 @@ export default function Index() {
 
       setTimeout(() => {
         const { rider: bestRider, tes } = selectBestRider(riders, currentOrder.selectedHex, liveS2D, storeConfig, personaConfig.baseTESModifier);
+        const hexLabel = hexGrid.find(h => h.id === currentOrder.selectedHex)?.label || '?';
+        const riderHexOrders = bestRider.ordersCompleted[`H${currentOrder.selectedHex}`] || 0;
 
         // Log full breakdown
         addLog('PROMISE', `📊 TES breakdown (O2S=${tes.o2s}m, S2D=${tes.s2d}m, D=${tes.plannedD}m):`, {
           breakdown: tes.breakdown,
           optimalPromise: tes.optimalPromise,
-          minTES: tes.minTES,
+          maxTES: tes.maxTES,
+          anchorDiff: `${tes.anchorDiff > 0 ? '+' : ''}${tes.anchorDiff}m from 10m anchor`,
+          promiseVsPlanned: `${tes.promiseVsPlanned > 0 ? '+' : ''}${tes.promiseVsPlanned}m cushion`,
+          weights: tes.weights,
         });
 
         setPipelineSteps(prev => prev.map(s =>
-          s.agent === 'PROMISE' ? { ...s, status: 'done' as const, output: { optimalPromise: tes.optimalPromise, minTES: tes.minTES, o2s: tes.o2s, s2d: tes.s2d, plannedD: tes.plannedD } } :
+          s.agent === 'PROMISE' ? { ...s, status: 'done' as const, output: { optimalPromise: tes.optimalPromise, maxTES: tes.maxTES, o2s: tes.o2s, s2d: tes.s2d, plannedD: tes.plannedD, anchorDiff: tes.anchorDiff, promiseVsPlanned: tes.promiseVsPlanned, weights: tes.weights } } :
           s.agent === 'ASSIGNMENT' ? { ...s, status: 'running' as const } : s
         ));
 
-        addLog('PROMISE', `✅ Promise = ${tes.optimalPromise}m (min TES: ${tes.minTES})`);
+        addLog('PROMISE', `✅ Promise = ${tes.optimalPromise}m (Max TES: ${tes.maxTES})`);
 
         setTimeout(() => {
           setPipelineSteps(prev => prev.map(s =>
-            s.agent === 'ASSIGNMENT' ? { ...s, status: 'done' as const, output: { rider: bestRider.name, archetype: bestRider.archetype, rating: bestRider.rating, reason: 'Max TES rider' } } : s
+            s.agent === 'ASSIGNMENT' ? { ...s, status: 'done' as const, output: { rider: bestRider.name, archetype: bestRider.archetype, rating: bestRider.rating, speed: bestRider.speedFactor, hexKnowledge: `${riderHexOrders} orders in ${hexLabel}`, localityAwareness: bestRider.localityAwareness, reason: 'Max TES rider' } } : s
           ));
 
-          addLog('ASSIGNMENT', `🏍️ Locked rider: ${bestRider.name} (${bestRider.archetype}) — best TES`, {
-            rating: bestRider.rating, speed: bestRider.speedFactor,
+          addLog('ASSIGNMENT', `🏍️ Selected rider: ${bestRider.name} (${bestRider.archetype})`, {
+            rating: bestRider.rating,
+            speed: `${bestRider.speedFactor}x`,
+            hexKnowledge: `${riderHexOrders} past orders in ${hexLabel}`,
+            localityAwareness: `${bestRider.localityAwareness}/10`,
+            reason: 'Yields maximum TES among idle riders',
           });
 
           setRiders(prev => prev.map(r => r.id === bestRider.id ? { ...r, status: 'assigned' } : r));
@@ -130,7 +150,7 @@ export default function Index() {
             state: 'FULFILLMENT',
             fulfillmentStatus: 'created',
             promiseMinutes: tes.optimalPromise,
-            tes: tes.minTES,
+            tes: tes.maxTES,
             assignedRider: bestRider,
             startTime: Date.now(),
           }));
@@ -139,7 +159,7 @@ export default function Index() {
         }, 600);
       }, 800);
     }, 600);
-  }, [riders, currentOrder.selectedHex, currentOrder.persona, liveS2D, storeConfig, personaConfig, addLog, updateCurrentOrder, invalidateCache]);
+  }, [riders, currentOrder.selectedHex, currentOrder.persona, liveS2D, storeConfig, personaConfig, hexGrid, addLog, updateCurrentOrder, invalidateCache]);
 
   const handleAdvanceStatus = useCallback((orderId: string) => {
     updateOrderById(orderId, (prev) => {
@@ -182,7 +202,8 @@ export default function Index() {
 
         addLog('RECOVERY', `📊 Recovery TES recalc (actual O2S=${Math.round(actualO2S * 10) / 10}m)`, {
           newPromise: recoveryTes.optimalPromise,
-          newTES: recoveryTes.minTES,
+          newTES: recoveryTes.maxTES,
+          weights: recoveryTes.weights,
         });
 
         const recoveryRider = findRecoveryRider(riders, prev.assignedRider?.id);
@@ -200,7 +221,7 @@ export default function Index() {
           delays: { ...prev.delays, [status]: existing + delaySec },
           assignedRider: recoveryRider,
           promiseMinutes: recoveryTes.optimalPromise,
-          tes: recoveryTes.minTES,
+          tes: recoveryTes.maxTES,
           state: 'FULFILLMENT' as const,
         };
       }

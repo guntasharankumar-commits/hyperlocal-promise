@@ -1,7 +1,7 @@
 import { AgentLog, AgentPipelineStep, OrderData } from '@/lib/simulation';
 import { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Activity, Brain, Bike, RotateCcw, Database, CheckCircle, Loader2, Circle, ChevronDown, ChevronRight } from 'lucide-react';
+import { Activity, Brain, Bike, RotateCcw, Database, CheckCircle, Loader2, Circle, ChevronDown, ChevronRight, Star, Gauge, Clock } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import TESGauge from './TESGauge';
@@ -58,9 +58,16 @@ export default function ControlTowerPanel({ logs, pipelineSteps, selectedOrder }
     setExpandedSteps(prev => ({ ...prev, [idx]: !prev[idx] }));
   };
 
+  // Extract TES details from pipeline steps
+  const promiseStep = pipelineSteps.find(s => s.agent === 'PROMISE' && s.status === 'done');
+  const assignmentStep = pipelineSteps.find(s => s.agent === 'ASSIGNMENT' && s.status === 'done');
+
+  const tesOutput = promiseStep?.output as Record<string, unknown> | undefined;
+  const riderOutput = assignmentStep?.output as Record<string, unknown> | undefined;
+
   return (
     <div className="flex flex-col h-full gap-3">
-      {/* TES Gauge */}
+      {/* TES Score + Rider + Breakdown */}
       {selectedOrder && selectedOrder.tes !== 0 && (
         <div className="bg-card border border-border rounded-xl p-3">
           <div className="flex items-center gap-2 mb-2">
@@ -70,6 +77,82 @@ export default function ControlTowerPanel({ logs, pipelineSteps, selectedOrder }
             </span>
           </div>
           <TESGauge value={selectedOrder.tes} />
+
+          {/* Rider Properties */}
+          {selectedOrder.assignedRider && (
+            <div className="mt-3 bg-secondary/50 rounded-lg p-2.5 space-y-2">
+              <div className="flex items-center gap-2">
+                <span className="text-sm">🏍️</span>
+                <span className="text-xs font-display font-bold text-foreground">{selectedOrder.assignedRider.name}</span>
+                <Badge variant="secondary" className="text-[8px]">{selectedOrder.assignedRider.archetype}</Badge>
+              </div>
+              <div className="grid grid-cols-3 gap-1.5 text-[9px] font-mono">
+                <div className="bg-card rounded p-1.5 text-center">
+                  <div className="text-muted-foreground flex items-center justify-center gap-0.5"><Star size={8} className="text-recovery-gold" /> Rating</div>
+                  <div className="text-foreground font-bold">{selectedOrder.assignedRider.rating}</div>
+                </div>
+                <div className="bg-card rounded p-1.5 text-center">
+                  <div className="text-muted-foreground flex items-center justify-center gap-0.5"><Gauge size={8} /> Speed</div>
+                  <div className="text-foreground font-bold">{selectedOrder.assignedRider.speedFactor}x</div>
+                </div>
+                <div className="bg-card rounded p-1.5 text-center">
+                  <div className="text-muted-foreground">Hex Knowledge</div>
+                  <div className="text-foreground font-bold">{selectedOrder.assignedRider.ordersCompleted[`H${selectedOrder.selectedHex}`] || 0} orders</div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Detailed TES Breakdown */}
+          {tesOutput && (
+            <div className="mt-3 space-y-2">
+              {/* Promise & Timing */}
+              <div className="grid grid-cols-2 gap-1.5 text-[9px] font-mono">
+                <div className="bg-secondary/50 rounded p-1.5">
+                  <div className="text-muted-foreground flex items-center gap-1"><Clock size={8} /> Promise</div>
+                  <div className="text-foreground font-bold text-sm">{String(tesOutput.optimalPromise)}m</div>
+                  <div className={`text-[8px] ${Number(tesOutput.anchorDiff) > 0 ? 'text-destructive' : 'text-neon'}`}>
+                    {Number(tesOutput.anchorDiff) > 0 ? '+' : ''}{String(tesOutput.anchorDiff)}m from 10m anchor
+                  </div>
+                </div>
+                <div className="bg-secondary/50 rounded p-1.5">
+                  <div className="text-muted-foreground">Planned D</div>
+                  <div className="text-foreground font-bold text-sm">{String(tesOutput.plannedD)}m</div>
+                  <div className="text-[8px] text-muted-foreground">
+                    O2S({String(tesOutput.o2s)}) + S2D({String(tesOutput.s2d)})
+                  </div>
+                </div>
+              </div>
+              <div className="bg-secondary/50 rounded p-1.5 text-[9px] font-mono">
+                <div className="text-muted-foreground mb-1">Cushion (Promise − Planned)</div>
+                <div className={`font-bold ${Number(tesOutput.promiseVsPlanned) >= 0 ? 'text-neon' : 'text-destructive'}`}>
+                  {Number(tesOutput.promiseVsPlanned) > 0 ? '+' : ''}{String(tesOutput.promiseVsPlanned)}m
+                </div>
+              </div>
+
+              {/* Weight Components */}
+              {tesOutput.weights && (
+                <div className="space-y-1">
+                  <div className="text-[9px] font-mono text-muted-foreground uppercase tracking-wider">Weight Components</div>
+                  {[
+                    { label: 'W1 Aggressiveness', value: (tesOutput.weights as Record<string, unknown>).W1, reason: (tesOutput.weights as Record<string, unknown>).W1_reason },
+                    { label: 'W2 Feasibility', value: (tesOutput.weights as Record<string, unknown>).W2, reason: (tesOutput.weights as Record<string, unknown>).W2_reason },
+                    { label: 'W3 Rider Quality', value: (tesOutput.weights as Record<string, unknown>).W3, reason: (tesOutput.weights as Record<string, unknown>).W3_reason },
+                    { label: 'Cost Penalty', value: `-${(tesOutput.weights as Record<string, unknown>).cost}`, reason: 'Variance in picking/packing adds risk' },
+                    { label: 'Persona Modifier', value: (tesOutput.weights as Record<string, unknown>).personaModifier, reason: `${Number((tesOutput.weights as Record<string, unknown>).personaModifier) > 0 ? 'Trusted customer boost' : Number((tesOutput.weights as Record<string, unknown>).personaModifier) < 0 ? 'Low trust penalty' : 'Neutral baseline'}` },
+                  ].map((w, i) => (
+                    <div key={i} className="bg-card border border-border/50 rounded p-1.5">
+                      <div className="flex justify-between items-center">
+                        <span className="text-[9px] font-mono font-bold text-foreground">{w.label}</span>
+                        <span className="text-[10px] font-mono font-bold text-neon">{String(w.value)}</span>
+                      </div>
+                      <div className="text-[8px] font-mono text-muted-foreground">{String(w.reason)}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
 
