@@ -41,11 +41,19 @@ export default function Index() {
   }, []);
 
   const handleCacheRefresh = useCallback((reason: string) => {
-    setPipelineSteps([
-      { agent: 'DATABASE', label: 'Cache Refresh', status: 'done' as const, output: { reason, trigger: 'automatic' } },
-      { agent: 'PROMISE', label: 'TES Optimization (76 entries)', status: 'done' as const, output: { combinations: '4 personas × 19 hexes', status: 'complete' } },
-      { agent: 'ASSIGNMENT', label: 'Rider Ranking', status: 'done' as const, output: { status: 'Best rider per combo cached' } },
-    ]);
+    // Only show cache refresh pipeline if no order is actively being fulfilled
+    // (to avoid overwriting order-specific TES pipeline data)
+    setActiveOrders(current => {
+      const hasActiveOrder = current.some(o => o.state === 'FULFILLMENT' || o.state === 'OPTIMIZING' || o.state === 'RECOVERY');
+      if (!hasActiveOrder) {
+        setPipelineSteps([
+          { agent: 'DATABASE', label: 'Cache Refresh', status: 'done' as const, output: { reason, trigger: 'automatic' } },
+          { agent: 'PROMISE', label: 'TES Optimization (76 entries)', status: 'done' as const, output: { combinations: '4 personas × 19 hexes', status: 'complete' } },
+          { agent: 'ASSIGNMENT', label: 'Rider Ranking', status: 'done' as const, output: { status: 'Best rider per combo cached' } },
+        ]);
+      }
+      return current; // no mutation
+    });
   }, []);
 
   const promiseCache = usePromiseCache(hexGrid, riders, storeConfig, addLog, handleCacheRefresh);

@@ -268,6 +268,16 @@ export default function StorefrontPanel({
                 <span className="ml-auto text-lg font-mono font-bold text-neon text-glow-green">{currentOrder.promiseMinutes}m</span>
               </div>
             )}
+
+            {/* Prominent New Order button */}
+            <Button
+              onClick={onNewOrder}
+              variant="outline"
+              className="w-full mt-3 gap-2 border-neon/30 text-neon hover:bg-neon/10 font-display font-semibold"
+              size="sm"
+            >
+              <Plus size={14} /> Place New Order
+            </Button>
           </div>
         </div>
       )}
