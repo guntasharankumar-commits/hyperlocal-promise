@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { motion, AnimatePresence } from 'framer-motion';
 import { ShoppingCart, CreditCard, MapPin, Clock, Package, User, CheckCircle, Circle, Truck, Plus, RefreshCw } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import GuidedHint from './GuidedHint';
 
 interface StorefrontPanelProps {
   currentOrder: OrderData;
@@ -116,11 +117,35 @@ export default function StorefrontPanel({
       {/* Browse/Checkout Mode */}
       {isBrowsing && (
         <div className="flex-1 flex flex-col min-h-0">
+          {/* Guided hint */}
+          <div className="px-3 pt-2 flex-shrink-0">
+            <AnimatePresence mode="wait">
+              {currentOrder.state === 'BROWSE' && currentOrder.persona === 'new' && currentOrder.selectedHex === 0 && (
+                <GuidedHint key="step1" step={1} totalSteps={6} message="Pick a customer persona" subtext="Each persona has different trust levels affecting delivery promise" variant="action" />
+              )}
+              {currentOrder.state === 'BROWSE' && !(currentOrder.persona === 'new' && currentOrder.selectedHex === 0) && currentOrder.selectedHex === 0 && (
+                <GuidedHint key="step2" step={2} totalSteps={6} message="Tap a hex on the map to set delivery location" subtext="Notice how the promise time changes — watch the Control Tower for details" variant="action" />
+              )}
+              {currentOrder.state === 'BROWSE' && currentOrder.selectedHex !== 0 && (
+                <GuidedHint key="step3" step={3} totalSteps={6} message="Great! Now add items to cart" subtext="Promise is optimized for this persona + hex combo" variant="action" />
+              )}
+              {currentOrder.state === 'CHECKOUT' && (
+                <GuidedHint key="step4" step={4} totalSteps={6} message="Place your order to trigger agent pipeline" subtext="Watch the Control Tower — agents will optimize TES & assign a rider" variant="action" />
+              )}
+            </AnimatePresence>
+          </div>
+
           {/* Persona Selector */}
           <div className="px-3 py-2 border-b border-border flex-shrink-0">
             <div className="flex items-center gap-2 mb-1.5">
               <User size={12} className="text-neon" />
               <span className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider">Customer Persona</span>
+              {currentOrder.persona === 'new' && currentOrder.selectedHex === 0 && (
+                <span className="relative flex h-2 w-2 ml-1">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-neon opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-neon"></span>
+                </span>
+              )}
             </div>
             <Select value={currentOrder.persona} onValueChange={(v) => onSelectPersona(v as UserPersona)}>
               <SelectTrigger className="h-8 text-xs font-mono bg-secondary border-border">
@@ -217,6 +242,14 @@ export default function StorefrontPanel({
       {/* Order Tracking */}
       {isTracking && (
         <div className="flex-1 flex flex-col min-h-0">
+          {/* Guided hint for tracking */}
+          <div className="px-3 pt-2 flex-shrink-0">
+            <AnimatePresence mode="wait">
+              {currentOrder.state === 'FULFILLMENT' && currentOrder.fulfillmentStatus !== 'delivered' && (
+                <GuidedHint key="step5" step={5} totalSteps={6} message="Go to Store Ops → Pipeline tab to advance & inject delays" subtext="Try clicking '+30s' delay at 'picked' step to trigger Recovery Agent!" variant="celebrate" />
+              )}
+            </AnimatePresence>
+          </div>
           <div className="flex-1 min-h-0 px-2 py-2">
             <div className="h-[200px] rounded-lg overflow-hidden">
               <LeafletHexMap
