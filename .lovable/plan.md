@@ -1,114 +1,67 @@
+## Changes Plan
 
+### 1. Fix Persona Dropdown Z-Index (SelectContent overlapped by map)
 
-## Q-Comm Control Tower — Three-Panel Architecture with AI Backend
+- In `StorefrontPanel.tsx`, add `z-50` or `style={{ zIndex: 50 }}` to the `SelectContent` component so it renders above the Leaflet map.
 
-### Current State
-- Two-panel layout: Storefront (left) + Store Ops (right)
-- 7 hexagons around a dark-themed map
-- Single active order at a time
-- All logic runs client-side in `simulation.ts`
-- 4 personas already exist in code
+### 2. Show Street Names on Map
 
-### What Changes
+- In `LeafletHexMap.tsx`, switch tile layer from `light_all` to OpenStreetMap tiles (`https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png`) which show full street names for Bengaluru, or use CartoDB Voyager (`voyager_labels_under`) which has street names on a light background.
 
-**1. Expanded Hex Grid (simulation.ts)**
-- Increase from 7 to 19 hexagons (two rings around the store) with proper lat/lng offsets
-- Labels H0–H18, each with computed S2D times based on distance from store
+### 3. Connect n8n as the AI Brain
 
-**2. Light Map Tiles (LeafletHexMap.tsx)**
-- Switch CartoDB dark tiles to CartoDB Positron (light) tiles
-- Adjust hex polygon colors for visibility on light background
+- Use the n8n MCP connector to connect the user's n8n instance.
+- Create a document (`/mnt/documents/n8n-flow-guide.md`) with:
+  - Full prompt/system instructions for the fulfillment agent
+  - `skills.md` content (TES formula, persona configs, rider database schema, hex grid details)
+  - n8n flow design: HTTP webhook trigger → AI agent node (with skills.md as context) → respond with structured JSON
+  - API documentation for calling the n8n webhook from the edge function
+- Update `supabase/functions/fulfillment-agent/index.ts` to call the n8n webhook URL instead of Lovable AI gateway (once user provides the webhook URL as a secret).
 
-**3. Multi-Order Support (Index.tsx + StorefrontPanel.tsx)**
-- Replace single `order` state with `activeOrders: OrderData[]` array
-- Left panel gets a "New Order" button that lets you pick a persona and hex, then place the order
-- Each order tracked independently with its own rider, status, and delays
-- Storefront shows a list of active orders with status badges, plus the browse/checkout flow for new orders
+### 4. Make Agent Pipeline Collapsible/Expandable
 
-**4. Three-Panel Layout**
+- In `ControlTowerPanel.tsx`, wrap the Agent Pipeline section with `Collapsible` from shadcn, defaulting to expanded. Each pipeline step can also be individually collapsible to show/hide its output JSON.
 
-```text
-┌──────────────┬──────────────────────┬──────────────┐
-│  STOREFRONT   │   CONTROL TOWER      │  STORE OPS   │
-│  (Consumer)   │   (Agent Monitor)    │  (Admin)     │
-│               │                      │              │
-│ • Persona     │ • Agent pipeline     │ • Order queue│
-│ • Map + Hex   │   visualization      │ • Delay mgmt│
-│ • Cart/Order  │ • TES calculation    │ • Riders     │
-│ • Multi-order │ • Rider assignment   │              │
-│   list        │ • Recovery events    │              │
-│               │ • Agent logs         │              │
-└──────────────┴──────────────────────┴──────────────┘
-```
+### 5. Promise Agent: Calculate TES for P=5..18 with O2S + S2D
 
-**5. Central Control Tower Panel (new `ControlTowerPanel.tsx`)**
+- In `simulation.ts`, update `calculateTES` to iterate P from 5 to 18 (instead of 8 to 15).
+- Add O2S (Order-to-Store) calculation: `O2S = pickingSLA + pickingVariance + packingSLA + packingVariance`.
+- Update planned delivery: `D = O2S + S2D` (instead of `s2dMinutes + 2 + pickingVariance`).
+- Find the P that yields the **minimum** TES (user said "assign promise for min TES" — this means the tightest promise that still has acceptable TES, i.e., the most aggressive promise).
+- Update the Agent Terminal logs in `Index.tsx` to show the full breakdown of all P=5..18 TES values.
 
-Shows the real-time backend agent pipeline as a visual flow:
+### 6. Store Ops: Picking & Packing Time Simulator
 
-- **Pipeline Steps** rendered as a vertical flow diagram:
-  - `PROMISE AGENT` → TES optimization result, selected P value
-  - `ASSIGNMENT AGENT` → Rider selection reasoning, Google Maps ETA reference
-  - `RECOVERY AGENT` → Triggered on delay, re-assignment logic
-  - `DATABASE AGENT` → Customer history lookup, store health check
+- In `StoreOpsPanel.tsx`, add a new section (or tab) "Store Config" with sliders:
+  - Avg Picking Time (1–10 min, default 3)
+  - Picking Variance (0–3 min, default 0.2)
+  - Avg Packing Time (1–5 min, default 2)
+  - Packing Variance (0–3 min, default 0.3)
+- Lift these values as state in `Index.tsx` (replace the current hardcoded `pickingVariance` and `packingVariance`) and pass them down to both `StoreOpsPanel` (for editing) and the checkout flow (for TES calculation).
 
-- **Agent Logs Terminal** (moved from BrainPanel) with color-coded entries per agent
+### 7. Recovery Agent: Use Actual O2S
 
-- **TES Gauge** displayed prominently at the top for the currently selected/active order
+- When recovery is triggered (delay injected), recalculate TES using actual elapsed O2S time from order start instead of the planned O2S. Pass this actual O2S into the promise agent formula for re-optimization.
 
-- Each pipeline step shows: status (pending/running/done), input data, output data, and timing
+### Files to Modify
 
-**6. Claude AI Backend Integration**
+- `src/components/StorefrontPanel.tsx` — Fix dropdown z-index
+- `src/components/LeafletHexMap.tsx` — Switch to street-name tiles
+- `src/components/ControlTowerPanel.tsx` — Add collapsible pipeline sections
+- `src/lib/simulation.ts` — Expand P range to 5-18, add O2S calc, update D formula
+- `src/pages/Index.tsx` — Lift picking/packing state, pass to components, update TES call with O2S
+- `src/components/StoreOpsPanel.tsx` — Add Store Config section with sliders
+- `supabase/functions/fulfillment-agent/index.ts` — Prepare for n8n webhook integration
 
-This requires a Supabase edge function + Lovable AI gateway (since Claude isn't available via the gateway, we'll use the available AI models as the "brain").
+### Files to Create
 
-**Edge Function: `supabase/functions/fulfillment-agent/index.ts`**
-- Receives order context (hex, persona, store health, rider pool)
-- Calls Lovable AI with a structured system prompt that acts as the fulfillment brain
-- Uses tool-calling to return structured decisions:
-  - `calculate_tes` → optimal promise
-  - `assign_rider` → best rider with reasoning
-  - `recovery_action` → re-assignment decision
-  - `update_database` → persist order/customer/rider data
-
-**Database Tables (Supabase migrations):**
-- `customers` — id, name, persona, historical_tes, order_count
-- `orders` — id, customer_id, hex_id, persona, promise_minutes, actual_minutes, tes_score, rider_id, status, delays, timestamps
-- `store_health` — picking_sla, packing_sla, picking_variance, packer_congestion
-- `riders` — id, name, archetype, rating, speed_factor, locality_awareness, status, hex_position, orders_per_hex (jsonb)
-- `store_locations` — id, name, lat, lng, hex_id
-
-**Frontend Integration:**
-- On checkout, the Storefront calls the edge function instead of running `calculateTES` locally
-- Control Tower panel streams the AI response and renders each agent step as it arrives
-- Results (TES, rider assignment) update the order state and map in real-time
-
-### Technical Details
-
-**Files to create:**
-- `src/components/ControlTowerPanel.tsx` — Central panel with agent pipeline visualization
-- `supabase/functions/fulfillment-agent/index.ts` — AI-powered fulfillment logic
-- Supabase migrations for the 5 database tables
-- `src/lib/api.ts` — Client-side functions to call the edge function
-
-**Files to modify:**
-- `src/lib/simulation.ts` — Expand hex grid to 19, add multi-order helpers
-- `src/components/LeafletHexMap.tsx` — Light tiles, support multiple rider markers, more hexagons
-- `src/components/StorefrontPanel.tsx` — Multi-order UI, order list
-- `src/components/StoreOpsPanel.tsx` — Multi-order management
-- `src/pages/Index.tsx` — Three-column layout, multi-order state, edge function integration
-- `src/index.css` — No theme changes needed (dark theme stays for UI, only map goes light)
-
-**Prerequisites:**
-- Lovable Cloud must be enabled for the edge function + Lovable AI gateway
-- Supabase connection for database tables
+- `/mnt/documents/n8n-flow-guide.md` — Prompt, skills.md, and n8n flow design with API docs
 
 ### Implementation Order
-1. Expand hex grid to 19 hexagons + light map tiles
-2. Multi-order state management in Index.tsx
-3. Update StorefrontPanel for multi-order flow
-4. Create ControlTowerPanel with agent pipeline visualization
-5. Update layout to three-column
-6. Set up Supabase tables (customers, orders, riders, store_health, store_locations)
-7. Create fulfillment-agent edge function with Lovable AI
-8. Wire frontend to call edge function on checkout and stream agent steps to Control Tower
 
+1. Fix dropdown z-index + street-name tiles
+2. Update TES formula (P=5..18, O2S+S2D)
+3. Add Store Config sliders in StoreOps, lift state
+4. Make pipeline collapsible
+5. Recovery agent with actual O2S
+6. Connect n8n + generate flow guide document
