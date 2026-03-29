@@ -184,20 +184,11 @@ export function calculateTES(
     const rounded = Math.round(tes * 10) / 10;
     breakdown.push({ promise: P, tes: rounded });
 
-    // Find maximum TES (best customer experience promise)
-    if (rounded > maxTES && P >= Math.ceil(D)) {
+    // Find absolute maximum TES across all P values
+    if (rounded > maxTES) {
       maxTES = rounded;
       optimalPromise = P;
     }
-  }
-
-  // If no promise >= D was found, pick the one closest to D
-  if (maxTES === -Infinity) {
-    const closestToD = breakdown.reduce((best, cur) =>
-      Math.abs(cur.promise - D) < Math.abs(best.promise - D) ? cur : best
-    );
-    optimalPromise = closestToD.promise;
-    maxTES = closestToD.tes;
   }
 
   const finalW2 = optimalPromise < D ? W2_base * Math.exp((D - optimalPromise) * 0.5) : W2_base;
