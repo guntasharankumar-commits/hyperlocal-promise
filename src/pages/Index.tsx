@@ -310,7 +310,7 @@ export default function Index() {
               riders={riders}
               hexGrid={hexGrid}
               storeConfig={storeConfig}
-              onStoreConfigChange={setStoreConfig}
+              onStoreConfigChange={(cfg: StoreConfig) => { setStoreConfig(cfg); invalidateCache(); }}
               onAddDelay={handleAddDelay}
               onAdvanceStatus={handleAdvanceStatus}
               onReset={handleReset}
