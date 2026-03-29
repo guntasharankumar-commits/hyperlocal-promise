@@ -1,4 +1,5 @@
 import { useState, useCallback, useMemo } from 'react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import StorefrontPanel from '@/components/StorefrontPanel';
 import StoreOpsPanel from '@/components/StoreOpsPanel';
 import ControlTowerPanel from '@/components/ControlTowerPanel';
@@ -289,15 +290,71 @@ export default function Index() {
     }, 100);
   }, [activeOrders, promiseCache]);
 
+  const storefrontContent = (
+    <StorefrontPanel
+      currentOrder={currentOrder}
+      activeOrders={activeOrders}
+      hexGrid={hexGrid}
+      storeConfig={storeConfig}
+      cacheVersion={cacheVersion}
+      onSelectHex={handleSelectHex}
+      onAddToCart={handleAddToCart}
+      onCheckout={handleCheckout}
+      onSelectPersona={handleSelectPersona}
+      onNewOrder={handleNewOrder}
+      onSelectActiveOrder={handleSelectActiveOrder}
+      livePromise={livePromise}
+      promiseCache={promiseCache}
+    />
+  );
+
+  const controlTowerContent = (
+    <ControlTowerPanel
+      logs={logs}
+      pipelineSteps={pipelineSteps}
+      selectedOrder={currentOrder}
+      riders={riders}
+      promiseCache={promiseCache}
+    />
+  );
+
+  const storeOpsContent = (
+    <div className="bg-card border border-border rounded-xl p-3 h-full overflow-hidden">
+      <StoreOpsPanel
+        activeOrders={activeOrders}
+        pastOrders={pastOrders}
+        riders={riders}
+        hexGrid={hexGrid}
+        storeConfig={storeConfig}
+        onStoreConfigChange={(cfg: StoreConfig) => {
+          const oldO2S = calculateO2S(storeConfig);
+          const newO2S = calculateO2S(cfg);
+          setStoreConfig(cfg);
+          invalidateCache();
+          if (Math.abs(oldO2S - newO2S) > 0.01) {
+            addLog('DATABASE', `🔄 Store config updated — O2S revised: ${oldO2S.toFixed(1)}m → ${newO2S.toFixed(1)}m`, {
+              pick: `${cfg.avgPickingTime}m ±${cfg.pickingVariance}`,
+              pack: `${cfg.avgPackingTime}m ±${cfg.packingVariance}`,
+              newO2S: newO2S.toFixed(1),
+            });
+          }
+        }}
+        onAddDelay={handleAddDelay}
+        onAdvanceStatus={handleAdvanceStatus}
+        onReset={handleReset}
+      />
+    </div>
+  );
+
   return (
-    <div className="min-h-screen bg-background p-3">
+    <div className="min-h-screen bg-background p-2 md:p-3">
       {/* Title bar */}
-      <div className="flex items-center justify-between mb-3">
+      <div className="flex items-center justify-between mb-2 md:mb-3">
         <div>
-          <h1 className="font-display font-bold text-lg text-foreground tracking-tight flex items-center gap-2">
+          <h1 className="font-display font-bold text-base md:text-lg text-foreground tracking-tight flex items-center gap-2">
             <span className="text-neon">⚡</span> Q-Comm Control Tower
           </h1>
-          <p className="text-[10px] font-mono text-muted-foreground">Dark Store Logistics Simulation • Bengaluru</p>
+          <p className="text-[9px] md:text-[10px] font-mono text-muted-foreground">Dark Store Logistics Simulation • Bengaluru</p>
         </div>
         <div className="hidden md:flex items-center gap-2">
           {['PROMISE', 'ASSIGNMENT', 'RECOVERY', 'DATABASE'].map(agent => (
@@ -314,82 +371,61 @@ export default function Index() {
         </div>
       </div>
 
-      {/* Three-column layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-[1fr_1.2fr_1fr] gap-4" style={{ height: 'calc(100vh - 80px)' }}>
-        {/* Left: Storefront */}
+      {/* Desktop: Three-column layout */}
+      <div className="hidden lg:grid grid-cols-[1fr_1.2fr_1fr] gap-4" style={{ height: 'calc(100vh - 80px)' }}>
         <div className="flex flex-col min-h-0">
           <div className="flex items-center gap-1.5 mb-1.5">
             <div className="w-2 h-2 rounded-full bg-neon" />
             <span className="text-[9px] font-mono text-muted-foreground uppercase tracking-wider">Storefront</span>
           </div>
-          <div className="flex-1 min-h-0">
-            <StorefrontPanel
-              currentOrder={currentOrder}
-              activeOrders={activeOrders}
-              hexGrid={hexGrid}
-              storeConfig={storeConfig}
-              cacheVersion={cacheVersion}
-              onSelectHex={handleSelectHex}
-              onAddToCart={handleAddToCart}
-              onCheckout={handleCheckout}
-              onSelectPersona={handleSelectPersona}
-              onNewOrder={handleNewOrder}
-              onSelectActiveOrder={handleSelectActiveOrder}
-              livePromise={livePromise}
-              promiseCache={promiseCache}
-            />
-          </div>
+          <div className="flex-1 min-h-0">{storefrontContent}</div>
         </div>
 
-        {/* Center: Control Tower */}
         <div className="flex flex-col min-h-0">
           <div className="flex items-center gap-1.5 mb-1.5">
             <div className="w-2 h-2 rounded-full bg-rider-blue" />
             <span className="text-[9px] font-mono text-muted-foreground uppercase tracking-wider">Control Tower</span>
           </div>
-          <div className="flex-1 min-h-0 overflow-y-auto terminal-scrollbar">
-            <ControlTowerPanel
-              logs={logs}
-              pipelineSteps={pipelineSteps}
-              selectedOrder={currentOrder}
-              riders={riders}
-              promiseCache={promiseCache}
-            />
-          </div>
+          <div className="flex-1 min-h-0 overflow-y-auto terminal-scrollbar">{controlTowerContent}</div>
         </div>
 
-        {/* Right: Store Operations */}
         <div className="flex flex-col min-h-0">
           <div className="flex items-center gap-1.5 mb-1.5">
             <div className="w-2 h-2 rounded-full bg-amber-warn" />
             <span className="text-[9px] font-mono text-muted-foreground uppercase tracking-wider">Store Operations</span>
           </div>
-          <div className="bg-card border border-border rounded-xl p-3 flex-1 min-h-0 overflow-hidden">
-            <StoreOpsPanel
-              activeOrders={activeOrders}
-              pastOrders={pastOrders}
-              riders={riders}
-              hexGrid={hexGrid}
-              storeConfig={storeConfig}
-              onStoreConfigChange={(cfg: StoreConfig) => {
-                const oldO2S = calculateO2S(storeConfig);
-                const newO2S = calculateO2S(cfg);
-                setStoreConfig(cfg);
-                invalidateCache();
-                if (Math.abs(oldO2S - newO2S) > 0.01) {
-                  addLog('DATABASE', `🔄 Store config updated — O2S revised: ${oldO2S.toFixed(1)}m → ${newO2S.toFixed(1)}m`, {
-                    pick: `${cfg.avgPickingTime}m ±${cfg.pickingVariance}`,
-                    pack: `${cfg.avgPackingTime}m ±${cfg.packingVariance}`,
-                    newO2S: newO2S.toFixed(1),
-                  });
-                }
-              }}
-              onAddDelay={handleAddDelay}
-              onAdvanceStatus={handleAdvanceStatus}
-              onReset={handleReset}
-            />
-          </div>
+          <div className="flex-1 min-h-0">{storeOpsContent}</div>
         </div>
+      </div>
+
+      {/* Mobile/Tablet: Tabbed layout */}
+      <div className="lg:hidden">
+        <Tabs defaultValue="storefront" className="w-full">
+          <TabsList className="w-full grid grid-cols-3 mb-2 bg-secondary">
+            <TabsTrigger value="storefront" className="text-[10px] font-mono gap-1.5 data-[state=active]:bg-neon/20 data-[state=active]:text-neon">
+              <div className="w-1.5 h-1.5 rounded-full bg-neon" />
+              Shop
+            </TabsTrigger>
+            <TabsTrigger value="tower" className="text-[10px] font-mono gap-1.5 data-[state=active]:bg-rider-blue/20 data-[state=active]:text-rider-blue">
+              <div className="w-1.5 h-1.5 rounded-full bg-rider-blue" />
+              Tower
+            </TabsTrigger>
+            <TabsTrigger value="ops" className="text-[10px] font-mono gap-1.5 data-[state=active]:bg-amber-warn/20 data-[state=active]:text-amber-warn">
+              <div className="w-1.5 h-1.5 rounded-full bg-amber-warn" />
+              Ops
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="storefront" className="mt-0" style={{ height: 'calc(100vh - 120px)' }}>
+            {storefrontContent}
+          </TabsContent>
+          <TabsContent value="tower" className="mt-0 overflow-y-auto terminal-scrollbar" style={{ height: 'calc(100vh - 120px)' }}>
+            {controlTowerContent}
+          </TabsContent>
+          <TabsContent value="ops" className="mt-0" style={{ height: 'calc(100vh - 120px)' }}>
+            {storeOpsContent}
+          </TabsContent>
+        </Tabs>
       </div>
     </div>
   );
